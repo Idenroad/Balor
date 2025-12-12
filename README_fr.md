@@ -76,6 +76,7 @@ Pour le moment, Balor embarque les stacks suivantes.
 - python-pyric (0.1)
 - wifiphisher (0.1)
 - bully (0.4)
+- wifite (0.5.1)
 
 **Caractéristiques :**
 
