@@ -44,7 +44,8 @@ L'idée de la **Legion** : un ensemble d'outils choisis, testés, intégrés, pl
 
 <br>
 
-<img width="803" height="453" alt="install" src="https://github.com/user-attachments/assets/ce229659-ea90-48a8-8519-75a72991f7dc" />
+<img width="862" height="457" alt="Copie d&#39;écran_20251212_093355" src="https://github.com/user-attachments/assets/26a46be1-d485-47ee-a9b2-12621a9d5b1a" />
+
 
 ---
 
