@@ -5,7 +5,7 @@ set -e
 # Version de l'installateur
 VERSION="${VERSION:-0.5.1}"
 
-DARKCACHY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BALOR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$BALOR_ROOT/lib/common.sh"
 
