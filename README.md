@@ -76,6 +76,7 @@ Current Balor stacks.
 - python-pyric (0.1)
 - wifiphisher (0.1)
 - bully (0.4)
+- Wifite (0.5.1)
 
 **Characteristics:**
 
