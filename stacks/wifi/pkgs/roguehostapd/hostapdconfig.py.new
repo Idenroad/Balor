@@ -1,0 +1,117 @@
+"""
+Module handles hostapd configuration
+"""
+
+import collections
+import os
+import json
+
+try:
+    # Python 3.2+ : SafeConfigParser est déprécié puis retiré.
+    # On utilise ConfigParser et on le renomme en SafeConfigParser pour compat.
+    from configparser import ConfigParser as SafeConfigParser  # Python 3.x+
+except ImportError:
+    # Fallback Python 2
+    from ConfigParser import SafeConfigParser  # Python 2
+
+
+# the configuration paths
+CONFIG_DIR = os.path.dirname(__file__)
+HOSTAPD_CONFIG_PATH = os.path.join(CONFIG_DIR, 'hostapd.conf')
+ROGUEHOSTAPD_DEFAULT_CONFIGPATH = os.path.join(CONFIG_DIR, 'config.ini')
+ROGUEHOSTAPD_RUNTIME_CONFIGPATH = os.path.join('/tmp', 'hostapd.conf')
+ROGUEHOSTAPD_DENY_MACS_CONFIGPATH = os.path.join('/tmp', 'hostapd.deny')
+
+
+def get_default_settings():
+    """
+    Get the project default settings
+    """
+    config = SafeConfigParser()
+    config.read(ROGUEHOSTAPD_DEFAULT_CONFIGPATH)
+    default_settings = collections.defaultdict()
+    for section in config.sections():
+        default_settings[section] = {}
+        for key, val in config.items(section):
+            default_settings[section][key] = json.loads(val)
+    return default_settings
+
+
+DEFAULT_SETTINGS = get_default_settings()
+
+# the roguehostapd package
+TOP_DIR = os.path.dirname(CONFIG_DIR)
+HOSTAPD_DIR = os.path.join(TOP_DIR, "hostapd-2_6")
+HOSTAPD_EXECUTION_PATH = os.path.join(HOSTAPD_DIR, 'hostapd', 'hostapd')
+
+# terminal colors (needed by setup.py)
+WHITE = '\033[1;37m'
+RED = '\033[1;31m'
+GREEN = '\033[1;32m'
+YELLOW = '\033[1;33m'
+BLUE = '\033[1;34m'
+MAGENTA = '\033[1;35m'
+CYAN = '\033[1;36m'
+RESET = '\033[0m'
+
+class HostapdConfig(object):
+    """
+    Simple wrapper for hostapd configuration file.
+
+    This is a minimal reimplementation to stay compatible with
+    roguehostapd.apctrl / wifiphisher. It reads a template config file
+    and allows updating some fields before writing the runtime config.
+    """
+
+    def __init__(self, template_path=HOSTAPD_CONFIG_PATH,
+                 runtime_path=ROGUEHOSTAPD_RUNTIME_CONFIGPATH,
+                 deny_macs_path=ROGUEHOSTAPD_DENY_MACS_CONFIGPATH):
+        self.template_path = template_path
+        self.runtime_path = runtime_path
+        self.deny_macs_path = deny_macs_path
+        self.lines = []
+
+        if os.path.exists(self.template_path):
+            with open(self.template_path, "r", encoding="utf-8", errors="ignore") as f:
+                self.lines = f.readlines()
+        else:
+            # Fallback minimal hostapd.conf template
+            self.lines = [
+                "interface=wlan0\n",
+                "driver=nl80211\n",
+                "ssid=RogueAP\n",
+                "hw_mode=g\n",
+                "channel=1\n",
+            ]
+
+    def set_option(self, key, value):
+        """
+        Set or replace a 'key=value' line in the in-memory config.
+        """
+        found = False
+        new_line = f"{key}={value}\n"
+        for i, line in enumerate(self.lines):
+            if line.strip().startswith(f"{key}="):
+                self.lines[i] = new_line
+                found = True
+                break
+        if not found:
+            self.lines.append(new_line)
+
+    def write(self, path=None):
+        """
+        Write the current configuration to the runtime file.
+        """
+        target = path or self.runtime_path
+        with open(target, "w", encoding="utf-8", errors="ignore") as f:
+            f.writelines(self.lines)
+
+    def write_deny_macs(self, macs=None):
+        """
+        Write a list of denied MAC addresses to the deny file.
+        """
+        if macs is None:
+            macs = []
+        with open(self.deny_macs_path, "w", encoding="utf-8", errors="ignore") as f:
+            for mac in macs:
+                f.write(f"{mac}\n")

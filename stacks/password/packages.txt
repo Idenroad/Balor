@@ -1,0 +1,14 @@
+# Password Stack - Balor
+
+pacman:hashcat
+pacman:hcxkeys
+pacman:hashcat-utils
+aur:handshake-cracker
+pacman:john
+pacman:medusa
+pacman:ncrack
+aur:crunch
+aur:hashid
+aur:wordlists
+
+

@@ -1,2 +1,321 @@
-# Balor
-Pentesting toolbox for CachyOS/Cachy Handheld edition
+# Balor – Idenroad Legion
+
+[Version française](README_fr.md)
+
+<img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
+
+**Balor** is a pentesting overlay built on top of [CachyOS Handheld Edition](https://cachyos.org/), designed for portable machines (Steam‑Deck‑like devices, Lenovo Legion Go, laptops, mini‑PCs).  
+We used to rely on [BlackArch](https://github.com/BlackArch/blackarch) but compatibility issues forced us to patch many packages.  
+We decided to optimize the installation of a smaller, opinionated set of tools we actually use, by forking some BlackArch files and using AUR or CachyOS repositories directly.
+
+**Idenroad** adds a **legion** of pentest and OSINT tools, organized into **stacks** that can be cleanly enabled or removed.
+
+Goal: turn a clean CachyOS base into a **portable offensive platform**, scripted, reproducible, without trashing the whole system.
+
+---
+
+## 🎯 Concept: Overlay on top of CachyOS Handheld Edition
+
+Balor does **not** replace CachyOS:
+
+- You start from a standard **CachyOS Handheld Edition** install.
+- The Idenroad overlay adds:
+  - per‑stack install / uninstall scripts,
+  - minimal integration to avoid polluting the system,
+  - an offensive focus (WiFi, OSINT, BLE, remote, etc.).
+
+You keep:
+
+- the optimized kernel, performance and tooling from CachyOS,
+- and you add an **offensive “Legion” layer**.
+
+---
+
+## 🛡️ “Legion” Concept
+
+The **Legion** idea: a curated set of tools, tested and integrated, rather than a huge bag of random packages.
+
+- Each *legion* = a thematic **stack** (WiFi, OSINT, Password, Remote, etc.).
+- Each stack:
+  - has its own `install.sh` / `uninstall.sh`,
+  - uses a `packages.txt` file to declare dependencies (`pacman:` / `aur:`),
+  - avoids side‑effects (NetworkManager, Java, system services, etc.),
+  - can be added or removed without breaking the rest.
+
+<br>
+
+<img width="803" height="453" alt="install" src="https://github.com/user-attachments/assets/ce229659-ea90-48a8-8519-75a72991f7dc" />
+
+---
+
+## 📦 Available stacks
+
+Current Balor stacks.
+
+> Numbers in parentheses are internal stack versions used only for tracking (0.x).
+
+### 1. 📡 WiFi Stack
+
+**Included tools:**
+
+- aircrack-ng (0.1)
+- hostapd (0.1)
+- roguehostapd (0.3)
+- dnsmasq (0.1)
+- bettercap (0.1)
+- wireshark-qt (0.1)
+- git (0.1)
+- python (0.1)
+- python-pip (0.1)
+- scapy (0.1)
+- python-tornado (0.1)
+- airgeddon (0.1)
+- hcxdumptool (0.1)
+- hcxtools (0.1)
+- python-pyric (0.1)
+- wifiphisher (0.1)
+- bully (0.4)
+
+**Characteristics:**
+
+- Designed to work with a **dedicated WiFi card** (not the main system interface).
+- Tries to avoid conflicts with NetworkManager / system services as much as possible.
+- Targeted patches for broken imports / scripts (e.g. `hostapdconfig.py`).
+
+**Use cases:**
+
+- `roguehostapd`: rogue AP / evil twin.
+- `wifiphisher`: captive portal, WiFi phishing.
+
+---
+
+### 2. 🔍 OSINT Stack
+
+**GUI tools:**
+
+- maltego (0.1)
+- spiderfoot (0.1)
+- python-censys (0.1)
+
+**CLI tools:**
+
+- theharvester-git (0.1)
+- amass-bin (0.1)
+- recon-ng (0.1)
+
+**Goal:**
+
+- Avoid typical Java issues like:
+
+  > A command line option has attempted to allow or enable the Security Manager.  
+  > Enabling a Security Manager is not supported.
+
+- Provide a ready‑to‑go OSINT base on handheld devices.
+
+---
+
+### 3. 🌊 Framework Stack
+
+**Included tools:**
+
+- burpsuite (0.2)
+- metasploit (0.2)
+
+**Goal:**
+
+- Provide a **clean, minimal base** for web pentest and post‑exploitation without turning the system into an unmaintainable mess.
+
+---
+
+### 4. 🐒 Web Exploit Stack
+
+**Included tools:**
+
+- gobuster (0.2)
+- sqlmap (0.2)
+- hydra (0.2)
+- nikto (0.2)
+- whatweb-git (0.2)
+- getoptlong (0.2)
+- resolv-replace (0.2)
+- csrf-brute (0.2)
+- ffuf (0.2)
+- wpscan (0.3)
+
+**Goal:**
+
+- Bring the main discovery / bruteforce / exploitation tools for web apps,
+- without fighting broken dependencies or outdated scripts.
+
+---
+
+### 5. 🌎 Network Scanner Stack
+
+**Included tools:**
+
+- nmap (0.3)
+- masscan (0.3)
+- arp-scan (0.3)
+- netdiscover (0.3)
+- tcpdump (0.3)
+
+**Goal:**
+
+- Provide a simple, stable **network scanning base**, easy to extend.
+
+---
+
+### 6. 💀 Password Stack
+
+**Included tools:**
+
+- hashcat (0.4)
+- hcxkeys (0.4)
+- hashcat-utils (0.4)
+- handshake-cracker (0.4)
+- john the ripper (0.4)
+- medusa (0.4)
+- ncrack (0.4)
+- crunch (0.4)
+- hashid (0.4)
+- wordlists (0.4)
+
+**Goal:**
+
+- Offer a **basic cracking toolbox** (hashes, WiFi handshakes, wordlists),
+- without adding dozens of overlapping tools.
+
+---
+
+### 7. 👀 Remote Stack
+
+**Included tools:**
+
+- openssh (0.5)
+- freerdp (0.5)
+- rdesktop (0.5)
+- smbclient (0.5)
+- rpcbind (0.5)
+- nfs-utils (0.5)
+- remmina (0.5)
+- remmina‑plugin‑teamviewer (0.5)
+
+**Goal:**
+
+- Ensure core **remote access tools** are present (SSH, RDP, SMB, NFS),
+- with a nice UI (Remmina) suited for handhelds.
+
+---
+
+## 🎯 Global objectives
+
+- **compatibility**: tools patched for CachyOS Handheld Edition.
+- **user‑friendly**: per‑stack install/uninstall, no need to be an Arch/AUR guru.
+- **reproducibility**: same machine + same script ⇒ same result.
+
+---
+
+## 🚀 Installation
+
+### Requirements
+
+- A working **CachyOS Handheld Edition** installation.
+- Root / `sudo` access.
+- Internet connection (packages + AUR).
+
+### Steps
+
+1. **Clone Balor on your machine:**
+
+   ```bash
+   git clone https://github.com/idenroad/Balor.git ~/pentesting
+   cd ~/Balor
+   ```
+
+2. **Run the global installer:**
+
+   ```bash
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+3. **From the main script, enable the stacks you want.**
+
+4. **Enjoy your portable Legion.**
+
+### Option 4: Full system upgrade
+
+One option in the script allows you to **upgrade everything**:
+
+- CachyOS core,
+- installed packages,
+- Balor tools.
+
+> ⚠️ Warning: this affects the **whole system**, like a full Arch/CachyOS upgrade.  
+> Use it only if you know what you’re doing.
+
+---
+
+**Target platforms:** Lenovo Legion Go, Steam Deck and other handhelds / laptops.
+
+![legiongo](https://github.com/user-attachments/assets/4ecfc90d-9e0c-4557-9fc0-34f9de4bd04a)
+
+---
+
+## 🗺️ Roadmap (next legions)
+
+Some ideas for future stacks / legions:
+
+- **BLE / RF**: tools like `btlejack`, basic NRF / RF analysis.
+- **Reporting**: report templates, small artifact‑collection scripts.
+- **Forensics / light IR**: post‑exploitation analysis tools, log / artifact collection.
+- **Doc / Cheatsheets**: offline helper stack for working on the go.
+
+---
+
+## 🛠️ Quickstart: WiFi + OSINT pentest with Idenroad
+
+### Scenario: WiFi audit + OSINT on a target
+
+1. **Start an evil twin with roguehostapd:**
+
+   ```bash
+   sudo roguehostapd -i wlan1 -e "FreeWiFi" -c 6
+   ```
+
+2. **Run a captive portal with wifiphisher:**
+
+   ```bash
+   sudo wifiphisher -aI wlan1 -e "FreeWiFi"
+   ```
+
+3. **Run theHarvester on a target domain:**
+
+   ```bash
+   theHarvester -d example.com -b all
+   ```
+
+4. **Launch Maltego (with a working Java setup):**
+
+   ```bash
+   maltego
+   ```
+
+---
+
+## ⚠️ Disclaimer / Legal usage
+
+**Balor / Idenroad Legion** is aimed at **CachyOS enthusiasts**, **security practitioners**, and **handheld PC fans**.
+
+- ❌ Only use these tools on systems for which you have **explicit written permission**.
+- ❌ Any malicious, unauthorized or illegal use is strictly forbidden.
+- ✅ Always comply with local and international cybersecurity laws.
+
+Balor / Idenroad authors and contributors **cannot be held responsible** for any misuse of these tools.
+
+---
+
+## 📧 Contact
+
+- **Idenroad**: https://idenroad.ca  
+- **GitHub**: https://github.com/idenroad/Balor

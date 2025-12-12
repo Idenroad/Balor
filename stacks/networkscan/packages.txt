@@ -1,0 +1,8 @@
+# Network Scan stack - Balor
+
+pacman:nmap
+pacman:masscan
+pacman:arp-scan
+aur:netdiscover
+pacman:tcpdump
+

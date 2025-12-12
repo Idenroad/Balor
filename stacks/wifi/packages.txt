@@ -1,0 +1,18 @@
+# WiFi stack Balor
+pacman:aircrack-ng
+pacman:hostapd
+pacman:dnsmasq
+pacman:bettercap
+pacman:wireshark-qt
+pacman:git
+pacman:python
+pacman:python-pip
+pacman:scapy
+pacman:python-tornado
+pacman:bully
+pacman:wifite
+
+aur:airgeddon
+aur:hcxdumptool
+aur:hcxtools
+aur:python-pyric

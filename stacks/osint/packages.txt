@@ -1,0 +1,11 @@
+# OSINT stack Balor
+
+# GUI / Web UI
+aur:maltego
+aur:spiderfoot
+aur:python-censys
+
+# CLI utiles
+aur:theharvester-git
+aur:amass-bin
+aur:recon-ng
