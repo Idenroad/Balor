@@ -42,11 +42,11 @@ The language is **automatically detected** from your system's `LANG` environment
 **Quick start:**
 ```bash
 # Use with auto-detection (default)
-balorsh
+./balorsh
 
 # Force a specific language
-BALOR_LANG=fr balorsh   # French
-BALOR_LANG=en balorsh   # English
+BALOR_LANG=fr ./balorsh   # French
+BALOR_LANG=en ./balorsh   # English
 ```
 
 📚 **Full documentation:**
@@ -259,6 +259,38 @@ Inspiration and improvements: the design borrows ideas from [NETREAPER](https://
 - **compatibility**: tools patched for CachyOS Handheld Edition.
 - **user‑friendly**: per‑stack install/uninstall, no need to be an Arch/AUR guru.
 - **reproducibility**: same machine + same script ⇒ same result.
+
+---
+
+## ⚡ Quick Install
+
+```bash
+git clone https://github.com/Idenroad/Balor.git
+cd Balor
+chmod +x install.sh
+./install.sh
+```
+
+In the menu, press **5** to install balorsh and all stacks in `/opt/balorsh`
+
+In your terminal, you can use:
+
+```bash
+balorsh --help
+balorsh --version
+balorsh list
+sudo balorsh <stack>
+```
+
+**For updating Balor:**
+
+1. Download the new release or `git clone`
+2. `cd Balor`
+3. `chmod +x install.sh`
+4. `./install.sh`
+5. Choose **5** again in the menu
+
+**Recommended:** Install ALL stacks!
 
 ---
 

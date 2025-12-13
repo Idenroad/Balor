@@ -30,7 +30,28 @@ Tu gardes :
 - mais tu ajoutes une **couche “Legion”** orientée red team.
 
 ---
+## 🌍 Support multilingue (0.6)
 
+Balor inclut désormais un **système d'internationalisation (i18n)** complet supportant :
+
+- 🇫🇷 **Français**
+- 🇬🇧 **Anglais** (English)
+
+La langue est **détectée automatiquement** à partir de la variable d'environnement `LANG` de votre système sur CachyOS.
+
+**Démarrage rapide :**
+```bash
+# Utilisation avec détection automatique (par défaut)
+./balorsh
+
+# Forcer une langue spécifique
+BALOR_LANG=fr ./balorsh   # Français
+BALOR_LANG=en ./balorsh   # Anglais
+```
+
+📚 **Documentation complète :**
+
+---
 ## 🛡️ Concept de "Legion"
 
 L'idée de la **Legion** : un ensemble d'outils choisis, testés, intégrés, plutôt qu'un gros tas de paquets installés à l'arrache.
@@ -100,7 +121,7 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 - python-pyric (0.1)
 - wifiphisher (0.1)
 - bully (0.4)
-- wifite (0.5.1)
+- Wifite (0.5.1)
 
 **Caractéristiques :**
 
@@ -238,6 +259,38 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 - **compatibilité** : les outils sont patchés pour être compatibles avec CachyOS Handheld Edition.
 - **user‑friendly** : installation et désinstallation simplifiées, par stack, sans devoir tout connaître d’Arch/AUR.
 - **reproductibilité** : même machine, même script, même résultat.
+
+---
+
+## ⚡ Installation rapide
+
+```bash
+git clone https://github.com/Idenroad/Balor.git
+cd Balor
+chmod +x install.sh
+./install.sh
+```
+
+Dans le menu, appuyez sur **5** pour installer balorsh et toutes les stacks dans `/opt/balorsh`
+
+Dans votre terminal, vous pouvez utiliser :
+
+```bash
+balorsh --help
+balorsh --version
+balorsh list
+sudo balorsh <stack>
+```
+
+**Pour mettre à jour Balor :**
+
+1. Téléchargez la nouvelle version ou `git clone`
+2. `cd Balor`
+3. `chmod +x install.sh`
+4. `./install.sh`
+5. Choisissez à nouveau **5** dans le menu
+
+**Recommandé :** Installez TOUTES les stacks !
 
 ---
 
