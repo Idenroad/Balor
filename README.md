@@ -294,35 +294,12 @@ sudo balorsh <stack>
 
 ---
 
-## 🚀 Installation
+## 🚀 Requirement
 
-### Requirements
 
 - A working **CachyOS Handheld Edition** installation.
 - Root / `sudo` access.
 - Internet connection (packages + AUR).
-
-### Steps
-
-1. **Clone Balor on your machine:**
-
-   ```bash
-   git clone https://github.com/idenroad/Balor.git ~/pentesting
-   cd ~/Balor
-   ```
-
-2. **Run the global installer:**
-
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
-
-3. **From the main script, enable the stacks you want.**
-
-4. **Enjoy your portable Legion.**
-
-### Option 4: Full system upgrade
 
 One option in the script allows you to **upgrade everything**:
 

@@ -294,35 +294,13 @@ sudo balorsh <stack>
 
 ---
 
-## 🚀 Installation
+## 🚀 Prérequis
 
-### Prérequis
 
 - Une installation **CachyOS Handheld Edition** fonctionnelle.
 - Accès root / `sudo`.
-- Connexion Internet (paquets + AUR).
+- Connexion Internet (paquets + AUR).à
 
-### Étapes
-
-1. **Cloner Balor sur la machine :**
-
-   ```bash
-   git clone https://github.com/idenroad/Balor.git ~/pentesting
-   cd ~/Balor
-   ```
-
-2. **Lancer l’install globale :**
-
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
-
-3. **Depuis le script global, activer les stacks souhaitées.**
-
-4. **Profiter de ta Legion portable.**
-
-### Option 4 : Tout mettre à jour
 
 Une des options du script permet de **tout mettre à jour** :
 
