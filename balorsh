@@ -29,14 +29,14 @@ read_version() {
 print_version() { echo "balorsh $(read_version)"; }
 
 print_help() {
-  cat <<'EOF'
-Usage:
-  balorsh --help | -h
-  balorsh --version | -V
-  balorsh list
-  balorsh <stack>            # ouvre le menu de la stack
-  balorsh <stack> --help     # affiche l'aide de la stack
-  balorsh <stack> list       # liste les actions de la stack
+  cat <<EOF
+${BALORSH_USAGE_TITLE}
+  ${BALORSH_HELP_OPT}
+  ${BALORSH_VERSION_OPT}
+  ${BALORSH_LIST_OPT}
+  ${BALORSH_STACK_MENU}
+  ${BALORSH_STACK_HELP}
+  ${BALORSH_STACK_LIST}
 EOF
 }
 
@@ -61,7 +61,7 @@ clear_actions() {
 
 actions_list() {
   for k in "${ACTION_KEYS[@]}"; do
-    printf "%-20s %s\n" "$k" "${ACTION_LABEL[$k]}"
+    printf "${BALORSH_ACTION_FORMAT}" "$k" "${ACTION_LABEL[$k]}"
   done
 }
 
