@@ -55,7 +55,7 @@ Pour le moment, Balor embarque les stacks suivantes.
 
 > Les numéros entre parenthèses sont des versions internes des stacks pour le suivi (0.x).
 
-## ⚙️ balorsh — Le wrapper (feature centrale)
+## ⚙️ balorsh — Le wrapper (feature centrale) (0.6)
 
 `balorsh` est l'interface principale du projet — la feature qui rend la
 surcouche réellement utilisable. Il charge le framework installé dans
