@@ -98,6 +98,11 @@ cleanly with that base system).
 
 Tip: In the WiFi stack menu you can use option [22] for Help and option [23] to restart NetworkManager.
 
+**Stack commands**
+
+- wifi: 23 choices (0.6)
+- networkscan: 18 choices (0.7)
+
 Inspiration and improvements: the design borrows ideas from [NETREAPER](https://github.com/Nerds489/NETREAPER/). However, Balor extends that model with extra utilities for cracking workflows — interactive wordlist selection, recursive concatenation of multiple lists into a prepared temporary wordlist, and direct integration with `aircrack-ng`/`hashcat` for a smoother cracking experience.
 
 ### 1. 📡 WiFi Stack
