@@ -30,7 +30,7 @@ You keep:
 - and you add an **offensive “Legion” layer**.
 
 ---
-## 🌍 Multilingual Support
+## 🌍 Multilingual Support (0.6)
 
 Balor now includes a complete **internationalization (i18n) system** supporting:
 
@@ -42,14 +42,14 @@ The language is **automatically detected** from your system's `LANG` environment
 **Quick start:**
 ```bash
 # Use with auto-detection (default)
-./balorsh
+balorsh
 
 # Force a specific language
-BALOR_LANG=fr ./balorsh   # French
-BALOR_LANG=en ./balorsh   # English
+BALOR_LANG=fr balorsh   # French
+BALOR_LANG=en balorsh   # English
 ```
 
-📚 **Full documentation:** [README_I18N.md](README_I18N.md)
+📚 **Full documentation:**
 
 ---
 ## 🛡️ “Legion” Concept
@@ -76,7 +76,7 @@ Current Balor stacks.
 
 > Numbers in parentheses are internal stack versions used only for tracking (0.x).
 
-## ⚙️ balorsh — The wrapper (core feature)
+## ⚙️ balorsh — The wrapper (core feature) (0.6)
 
 `balorsh` is the central command wrapper for this project — essentially the
 feature that brings the overlay to life. It loads the framework installed in
