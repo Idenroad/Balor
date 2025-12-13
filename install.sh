@@ -188,6 +188,12 @@ install_balorsh_wrapper() {
   # Dossiers (NOTE : slash final => copie le contenu dans le dossier cible)
   sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/lib/"    "$BALOR_OPT_ROOT/lib/"
   sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/stacks/" "$BALOR_OPT_ROOT/stacks/"
+  
+  # Copie de la documentation
+  if [[ -d "$BALOR_ROOT/doc" ]]; then
+    echo "[Balor] Copie de la documentation (doc/)..."
+    sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/doc/" "$BALOR_OPT_ROOT/doc/"
+  fi
 
   # S'assurer que tous les scripts dans /opt/balorsh/stacks ont les bonnes permissions
   echo "[Balor] Application des permissions exécutables aux scripts..."
