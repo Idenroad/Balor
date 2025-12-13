@@ -55,6 +55,30 @@ Pour le moment, Balor embarque les stacks suivantes.
 
 > Les numéros entre parenthèses sont des versions internes des stacks pour le suivi (0.x).
 
+## ⚙️ balorsh — Le wrapper (feature centrale)
+
+`balorsh` est l'interface principale du projet — la feature qui rend la
+surcouche réellement utilisable. Il charge le framework installé dans
+/opt/balorsh et expose des menus par stack, des commandes d'aide et une
+interface CLI cohérente pour éviter d'appeler les scripts individuellement.
+
+Exemples d'utilisation :
+
+- Ouvrir le menu de la stack WiFi : `balorsh wifi` (exemple de stack : `balorsh wifi (0.6)`)
+- Lister les stacks disponibles : `balorsh list`
+
+Utiliser `balorsh` est la méthode recommandée pour interagir avec les stacks —
+elle apporte validation, cohérence et facilite les mises à jour comparé à
+l'exécution manuelle des scripts d'installation.
+
+Remarque : Ces stacks et le wrapper `balorsh` sont principalement destinés à
+CachyOS / CachyOS Handheld Edition (le projet est conçu pour s'intégrer
+proprement à cette base système).
+
+Astuce : Dans le menu de la stack WiFi, utilisez l'option [22] pour l'Aide et l'option [23] pour redémarrer NetworkManager.
+
+Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://github.com/Nerds489/NETREAPER/). Balor étend cette approche en ajoutant des utilitaires pour le cracking — sélection interactive de wordlists, concaténation récursive de plusieurs listes dans un fichier temporaire préparé, et intégration directe avec `aircrack-ng`/`hashcat` pour un flux de cracking plus fluide.
+
 ### 1. 📡 Stack WiFi
 
 **Outils inclus :**

@@ -11,6 +11,8 @@ pacman:scapy
 pacman:python-tornado
 pacman:bully
 pacman:wifite
+pacman:fzf
+pacman:macchanger
 
 aur:airgeddon
 aur:hcxdumptool

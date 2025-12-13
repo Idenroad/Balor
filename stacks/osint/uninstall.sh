@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$SCRIPT_DIR/../../lib/common.sh"
 
-echo "[OSINT] Désinstallation de la stack OSINT..."
+echo "$OSINT_UNINSTALL_REMOVING"
 
 PKGS_RAW=$(read_stack_packages "$SCRIPT_DIR")
 PAC_PKGS="${PKGS_RAW%%|*}"
@@ -18,8 +18,8 @@ done
 
 # Nettoyage du wrapper Maltego spécifique à la stack
 if [[ -f /usr/local/bin/maltego17 ]]; then
-  echo "[OSINT] Suppression du wrapper /usr/local/bin/maltego17..."
+  printf "$WIFI_UNINSTALL_REMOVE_BIN\n" "/usr/local/bin/maltego17"
   sudo rm -f /usr/local/bin/maltego17
 fi
 
-echo "[OSINT] Désinstallation terminée."
+echo "$OSINT_UNINSTALL_COMPLETE"

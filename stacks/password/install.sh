@@ -11,7 +11,7 @@ source "$ROOT_DIR/lib/common.sh"
 
 echo ""
 echo "=========================================="
-echo " Installation de la stack Password"
+echo "$PASSWORD_INSTALL_TITLE"
 echo "=========================================="
 echo ""
 
@@ -25,7 +25,7 @@ IFS='|' read -r pacman_list aur_list <<< "$packages_data"
 # Installation des paquets pacman
 if [[ -n "$pacman_list" ]]; then
   echo ""
-  echo "[Balor] Installation des paquets pacman..."
+  echo "$INSTALL_PACMAN_PACKAGES"
   for pkg in $pacman_list; do
     install_pacman_pkg "$pkg"
   done
@@ -34,7 +34,7 @@ fi
 # Installation des paquets AUR
 if [[ -n "$aur_list" ]]; then
   echo ""
-  echo "[Balor] Installation des paquets AUR..."
+  echo "$INSTALL_AUR_PACKAGES"
   for pkg in $aur_list; do
     install_aur_pkg "$pkg"
   done
@@ -42,24 +42,24 @@ fi
 
 echo ""
 echo "=========================================="
-echo " Stack Password installée !"
+echo "$PASSWORD_INSTALL_COMPLETE"
 echo "=========================================="
 echo ""
-echo "Outils principaux installés :"
-echo "  - hashcat, hashcat-utils, hcxkeys"
-echo "  - handshake-cracker"
-echo "  - john (John the Ripper)"
-echo "  - medusa, ncrack"
-echo "  - crunch, rainbowcrack"
-echo "  - hashid, wordlists"
+echo "$PASSWORD_TOOLS_INSTALLED"
+echo "$PASSWORD_TOOL_HASHCAT"
+echo "$PASSWORD_TOOL_HANDSHAKE"
+echo "$PASSWORD_TOOL_JOHN"
+echo "$PASSWORD_TOOL_BRUTEFORCE"
+echo "$PASSWORD_TOOL_WORDLIST"
+echo "$PASSWORD_TOOL_HASHID"
 echo ""
-echo "Exemples de commandes (quick start) :"
-echo "  hashcat -m <mode> -a 0 hash.txt wordlist.txt      # Crack de hash avec dictionnaire"
-echo "  john --wordlist=wordlist.txt hash.txt             # Crack avec John the Ripper"
-echo "  medusa -h <hôte> -u <user> -P wordlist.txt -M <service>   # Bruteforce login"
-echo "  ncrack -p 22,3389 <cible>                         # Audit de services réseau"
-echo "  crunch 8 8 abcdef1234 -o custom.txt               # Génération de wordlist"
-echo "  hashid 'hash_ici'                                 # Identification de type de hash"
+echo "$PASSWORD_EXAMPLES_TITLE"
+echo "$PASSWORD_EXAMPLE_HASHCAT"
+echo "$PASSWORD_EXAMPLE_JOHN"
+echo "$PASSWORD_EXAMPLE_MEDUSA"
+echo "$PASSWORD_EXAMPLE_NCRACK"
+echo "$PASSWORD_EXAMPLE_CRUNCH"
+echo "$PASSWORD_EXAMPLE_HASHID"
 echo ""
-echo "[!] Utilisez ces outils uniquement dans un cadre légal et avec autorisation."
+echo "$PASSWORD_WARNING"
 echo ""

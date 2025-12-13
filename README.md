@@ -30,7 +30,28 @@ You keep:
 - and you add an **offensive “Legion” layer**.
 
 ---
+## 🌍 Multilingual Support
 
+Balor now includes a complete **internationalization (i18n) system** supporting:
+
+- 🇫🇷 **French** (Français)
+- 🇬🇧 **English**
+
+The language is **automatically detected** from your system's `LANG` environment variable on CachyOS.
+
+**Quick start:**
+```bash
+# Use with auto-detection (default)
+./balorsh
+
+# Force a specific language
+BALOR_LANG=fr ./balorsh   # French
+BALOR_LANG=en ./balorsh   # English
+```
+
+📚 **Full documentation:** [README_I18N.md](README_I18N.md)
+
+---
 ## 🛡️ “Legion” Concept
 
 The **Legion** idea: a curated set of tools, tested and integrated, rather than a huge bag of random packages.
@@ -54,6 +75,30 @@ The **Legion** idea: a curated set of tools, tested and integrated, rather than 
 Current Balor stacks.
 
 > Numbers in parentheses are internal stack versions used only for tracking (0.x).
+
+## ⚙️ balorsh — The wrapper (core feature)
+
+`balorsh` is the central command wrapper for this project — essentially the
+feature that brings the overlay to life. It loads the framework installed in
+/opt/balorsh and exposes per-stack menus, helper commands and a consistent
+CLI surface so you don't have to call individual scripts directly.
+
+Usage examples:
+
+- Open the WiFi stack menu: `balorsh wifi` (stack example: `balorsh wifi (0.6)`)
+- List available stacks: `balorsh list`
+
+Using `balorsh` is the recommended way to interact with stacks — it provides
+validation, consistent UX and easier upgrades compared to running stack
+installers or scripts manually.
+
+Note: These stacks and the `balorsh` wrapper are primarily targeted at
+CachyOS / CachyOS Handheld Edition (the project is designed to integrate
+cleanly with that base system).
+
+Tip: In the WiFi stack menu you can use option [22] for Help and option [23] to restart NetworkManager.
+
+Inspiration and improvements: the design borrows ideas from [NETREAPER](https://github.com/Nerds489/NETREAPER/). However, Balor extends that model with extra utilities for cracking workflows — interactive wordlist selection, recursive concatenation of multiple lists into a prepared temporary wordlist, and direct integration with `aircrack-ng`/`hashcat` for a smoother cracking experience.
 
 ### 1. 📡 WiFi Stack
 

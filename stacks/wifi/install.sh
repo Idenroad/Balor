@@ -10,7 +10,7 @@ ROGUEHOSTAPD_DIR="/opt/roguehostapd"
 WIFIPHISHER_DIR="/opt/wifiphisher"
 
 install_roguehostapd_pkg() {
-  echo "[WiFi] Installation du paquet roguehostapd via PKGBUILD (hostapd patché)..."
+  echo "$WIFI_INSTALL_ROGUEHOSTAPD_PKG"
 
   # Dépendances de build
   install_pacman_pkg git
@@ -21,31 +21,31 @@ install_roguehostapd_pkg() {
   install_pacman_pkg libnl
 
   if pacman -Qi roguehostapd >/dev/null 2>&1; then
-    echo "  [OK] paquet roguehostapd déjà installé (via pacman)."
+    echo "  $WIFI_ROGUEHOSTAPD_ALREADY"
     return
   fi
 
   if [[ ! -f "$ROGUE_PKG_DIR/PKGBUILD" ]]; then
-    echo "  [ERREUR] PKGBUILD roguehostapd introuvable dans $ROGUE_PKG_DIR"
+    printf "  $WIFI_PKGBUILD_NOT_FOUND\n" "$ROGUE_PKG_DIR"
     return 1
   fi
 
   tmpdir=$(mktemp -d)
-  echo "  [BUILD] Copie de PKGBUILD + hostapdconfig.py.new dans $tmpdir ..."
+  printf "  $WIFI_BUILD_COPY\n" "$tmpdir"
   cp "$ROGUE_PKG_DIR/PKGBUILD" "$ROGUE_PKG_DIR/hostapdconfig.py.new" "$tmpdir/"
   cd "$tmpdir"
 
-  echo "  [BUILD] makepkg -si ..."
+  echo "  $WIFI_BUILD_MAKEPKG"
   makepkg -si --noconfirm
 
   cd - >/dev/null
   rm -rf "$tmpdir"
 
-  echo "[WiFi] roguehostapd (paquet) installé via PKGBUILD."
+  echo "$WIFI_ROGUEHOSTAPD_PKG_INSTALLED"
 }
 
 install_roguehostapd_python() {
-  echo "[WiFi] Installation de roguehostapd (module Python depuis ton fork GitHub)..."
+  echo "$WIFI_INSTALL_ROGUEHOSTAPD_PYTHON"
 
   # Dépendances
   install_pacman_pkg git
@@ -54,21 +54,21 @@ install_roguehostapd_python() {
 
   # Si le module Python est déjà importable, on considère que c'est bon
   if python -c "import roguehostapd" >/dev/null 2>&1; then
-    echo "  [OK] module Python roguehostapd déjà présent."
+    echo "  $WIFI_ROGUEHOSTAPD_PYTHON_ALREADY"
     # Si tu veux forcer la mise à jour du repo / reinstall, tu peux commenter ce return.
     return
   fi
 
   # Cloner ou mettre à jour ton fork
   if [[ -d "$ROGUEHOSTAPD_DIR/.git" ]]; then
-    echo "  [INFO] Répertoire roguehostapd déjà présent, mise à jour depuis GitHub..."
+    echo "  $WIFI_ROGUEHOSTAPD_UPDATE"
     sudo git -C "$ROGUEHOSTAPD_DIR" pull --rebase
   else
-    echo "  [CLONE] git clone Idenroad/roguehostapd..."
+    echo "  $WIFI_ROGUEHOSTAPD_CLONE"
     sudo git clone https://github.com/Idenroad/roguehostapd.git "$ROGUEHOSTAPD_DIR"
   fi
 
-  echo "  [SETUP] python setup.py install..."
+  echo "  $WIFI_SETUP_PYTHON"
   local py="python3"
   command -v python3 >/dev/null 2>&1 || py="python"
 
@@ -76,35 +76,35 @@ install_roguehostapd_python() {
   sudo "$py" setup.py install
   cd - >/dev/null
 
-  echo "[WiFi] roguehostapd (module Python) installé depuis ton fork."
+  echo "$WIFI_ROGUEHOSTAPD_PYTHON_INSTALLED"
 }
 
 install_wifiphisher() {
-  echo "[WiFi] Installation de wifiphisher depuis GitHub..."
+  echo "$WIFI_INSTALL_WIFIPHISHER"
 
   # Vérifier Python
   if ! command -v python >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
-    echo "  [INFO] Python n'est pas détecté dans le PATH, installation via pacman..."
+    echo "  $WIFI_PYTHON_NOT_DETECTED"
     install_pacman_pkg python
   fi
 
   # Vérifier git
   if ! command -v git >/dev/null 2>&1; then
-    echo "  [INFO] git n'est pas détecté dans le PATH, installation via pacman..."
+    echo "  $WIFI_GIT_NOT_DETECTED"
     install_pacman_pkg git
   fi
 
   # Cloner ou mettre à jour le repo
   if [[ -d "$WIFIPHISHER_DIR/.git" ]]; then
-    echo "  [INFO] Répertoire wifiphisher déjà présent, mise à jour..."
+    echo "  $WIFI_WIFIPHISHER_UPDATE"
     sudo git -C "$WIFIPHISHER_DIR" pull --rebase
   else
-    echo "  [CLONE] git clone wifiphisher..."
+    echo "  $WIFI_WIFIPHISHER_CLONE"
     sudo git clone https://github.com/wifiphisher/wifiphisher.git "$WIFIPHISHER_DIR"
   fi
 
   # Installer via setup.py
-  echo "  [SETUP] python setup.py install..."
+  echo "  $WIFI_SETUP_PYTHON"
   local py="python3"
   command -v python3 >/dev/null 2>&1 || py="python"
 
@@ -112,26 +112,26 @@ install_wifiphisher() {
   sudo "$py" setup.py install
   cd - >/dev/null
 
-  echo "[WiFi] wifiphisher installé."
+  echo "$WIFI_WIFIPHISHER_INSTALLED"
 }
 
 patch_pyric_rfkill() {
-  echo "[WiFi] Patch de pyric/utils/rfkill.py pour Python 3.13..."
+  echo "$WIFI_PATCH_PYRIC"
 
   local rfkill_py="/usr/lib/python3.13/site-packages/pyric/utils/rfkill.py"
 
   if [[ ! -f "$rfkill_py" ]]; then
-    echo "  [SKIP] $rfkill_py introuvable, pyric n'est peut-être pas installé."
+    printf "  $WIFI_RFKILL_NOT_FOUND\n" "$rfkill_py"
     return
   fi
 
   # Vérifier si le patch est déjà appliqué
   if grep -A5 "def rfkill_unblock(idx):" "$rfkill_py" | grep -q "if _PY3_:"; then
-    echo "  [SKIP] Patch déjà appliqué sur rfkill_unblock."
+    echo "  $WIFI_PATCH_ALREADY_APPLIED"
     return
   fi
 
-  echo "  [PATCH] Application du patch sur rfkill_unblock..."
+  echo "  $WIFI_APPLYING_PATCH"
 
   sudo python3 - << 'EOF'
 import io
@@ -179,10 +179,10 @@ else:
     print("  [OK] rfkill_unblock patché ({} remplacement).".format(count))
 EOF
 
-  echo "[WiFi] Patch pyric terminé."
+  echo "$WIFI_PATCH_COMPLETE"
 }
 
-echo "[WiFi] Installation de la stack WiFi..."
+printf "$INSTALL_STACK_START\n" "WiFi"
 
 ensure_aur_helper
 
@@ -190,12 +190,12 @@ PKGS_RAW=$(read_stack_packages "$SCRIPT_DIR")
 PAC_PKGS="${PKGS_RAW%%|*}"
 AUR_PKGS="${PKGS_RAW#*|}"
 
-echo "[WiFi] Installation des paquets pacman..."
+echo "$INSTALL_PACMAN_PACKAGES"
 for p in $PAC_PKGS; do
   install_pacman_pkg "$p"
 done
 
-echo "[WiFi] Installation des paquets AUR..."
+echo "$INSTALL_AUR_PACKAGES"
 for a in $AUR_PKGS; do
   install_aur_pkg "$a"
 done
@@ -206,15 +206,15 @@ install_wifiphisher
 patch_pyric_rfkill
 
 echo ""
-echo "[WiFi] ✓ Stack WiFi installée avec succès."
-echo "[WiFi] Outils disponibles:"
-echo "  - aircrack-ng, hostapd, dnsmasq"
-echo "  - bettercap, wireshark"
-echo "  - airgeddon, hcxdumptool, hcxtools"
-echo "  - roguehostapd (paquet + module Python fork Idenroad), wifiphisher"
+printf "$INSTALL_STACK_COMPLETE\n" "WiFi"
+echo "$WIFI_TOOLS_AVAILABLE"
+echo "  $WIFI_TOOLS_LIST_1"
+echo "  $WIFI_TOOLS_LIST_2"
+echo "  $WIFI_TOOLS_LIST_3"
+echo "  $WIFI_TOOLS_LIST_4"
 echo ""
-echo "[WiFi] Note importante:"
-echo "  Pour wifiphisher, il est recommandé d'utiliser une 2ᵉ carte Wi-Fi USB dédiée."
-echo "  Tu peux réduire les bugs en faisant par exemple :"
-echo "    sudo nmcli dev set wlan1 managed no"
+echo "$WIFI_NOTE_IMPORTANT"
+echo "  $WIFI_NOTE_2ND_CARD"
+echo "  $WIFI_NOTE_REDUCE_BUGS"
+echo "    $WIFI_NOTE_NMCLI_CMD"
 echo ""

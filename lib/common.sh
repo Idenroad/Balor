@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Charger le système i18n
+SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=i18n.sh
+source "$SCRIPT_DIR_COMMON/i18n.sh"
+
 # Détection de paru
 have_paru() {
   command -v paru >/dev/null 2>&1
@@ -8,25 +13,24 @@ have_paru() {
 # Installer paru si absent
 ensure_aur_helper() {
   if have_paru; then
-    echo "[Balor] paru détecté."
+    echo "$MSG_PARU_DETECTED"
     return
   fi
 
-  echo "[Balor] paru non trouvé."
-  echo "1) Installer paru depuis les dépôts (recommandé sur CachyOS)"
-  echo "2) Ne pas installer de helper AUR (les paquets AUR seront ignorés)"
-  read -rp "Choix [1/2]: " choice
+  echo "$MSG_PARU_NOT_FOUND"
+  echo -e "$MSG_PARU_INSTALL_PROMPT"
+  read -rp "$MSG_PARU_CHOICE" choice
 
   case "$choice" in
     1)
-      echo "[Balor] Installation de paru via pacman..."
-      sudo pacman -S --needed --noconfirm paru || echo "[!] Échec installation paru."
+      echo "$MSG_PARU_INSTALLING"
+      sudo pacman -S --needed --noconfirm paru || echo "$MSG_PARU_INSTALL_FAILED"
       ;;
     2)
-      echo "[Balor] Ok, pas de helper AUR. Les paquets AUR seront ignorés."
+      echo "$MSG_PARU_SKIPPED"
       ;;
     *)
-      echo "[Balor] Choix invalide, aucun helper installé."
+      echo "$MSG_PARU_INVALID_CHOICE"
       ;;
   esac
 }
@@ -35,9 +39,9 @@ ensure_aur_helper() {
 install_pacman_pkg() {
   local pkg="$1"
   if pacman -Qi "$pkg" >/dev/null 2>&1; then
-    echo "  [OK] $pkg déjà installé (pacman)."
+    printf "$MSG_PKG_ALREADY_INSTALLED\n" "$pkg"
   else
-    echo "  [INSTALL] $pkg (pacman)..."
+    printf "$MSG_PKG_INSTALLING\n" "$pkg"
     sudo pacman -S --needed --noconfirm "$pkg"
   fi
 }
@@ -47,14 +51,14 @@ install_aur_pkg() {
   local pkg="$1"
 
   if ! have_paru; then
-    echo "  [SKIP] $pkg (AUR) : paru non configuré."
+    printf "$MSG_PKG_AUR_SKIP\n" "$pkg"
     return
   fi
 
   if pacman -Qi "$pkg" >/dev/null 2>&1; then
-    echo "  [OK] $pkg déjà installé (AUR/pacman)."
+    printf "$MSG_PKG_AUR_ALREADY\n" "$pkg"
   else
-    echo "  [INSTALL] $pkg (AUR via paru)..."
+    printf "$MSG_PKG_AUR_INSTALLING\n" "$pkg"
     paru -S --needed --noconfirm "$pkg"
   fi
 }
@@ -105,3 +109,28 @@ read_stack_packages() {
 
   echo "${pacman_pkgs[*]}|${aur_pkgs[*]}"
 }
+
+# --- Aides couleur du terminal ---
+# Convertit une couleur hexadécimale #RRGGBB en séquence ANSI 24-bit
+# pour la couleur du texte (foreground)
+hex_to_ansi_fg() {
+  local hex="$1"
+  hex="${hex#\#}"
+  local r=$((16#${hex:0:2}))
+  local g=$((16#${hex:2:2}))
+  local b=$((16#${hex:4:2}))
+  printf '\033[38;2;%d;%d;%dm' "$r" "$g" "$b"
+}
+
+# Variables de couleur communes (palette du menu)
+# Palette fournie : #751EE9, #9075E2, #06FB06, #25FD9D
+C_RESET="\033[0m"
+C_BOLD="\033[1m"
+C_ACCENT1="$(hex_to_ansi_fg '#751EE9')"
+C_ACCENT2="$(hex_to_ansi_fg '#9075E2')"
+C_GOOD="$(hex_to_ansi_fg '#06FB06')"
+C_HIGHLIGHT="$(hex_to_ansi_fg '#25FD9D')"
+# couleur d'ombre/étiquette subtile (effet atténué)
+C_SHADOW="\033[2m"
+
+export C_RESET C_BOLD C_ACCENT1 C_ACCENT2 C_GOOD C_HIGHLIGHT C_SHADOW

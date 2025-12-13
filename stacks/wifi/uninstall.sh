@@ -9,33 +9,33 @@ WIFIPHISHER_DIR="/opt/wifiphisher"
 ROGUEHOSTAPD_DIR="/opt/roguehostapd"
 
 uninstall_wifiphisher() {
-  echo "[WiFi] Désinstallation de wifiphisher..."
+  echo "$WIFI_UNINSTALL_WIFIPHISHER"
 
   if [[ -d "$WIFIPHISHER_DIR" ]]; then
-    echo "  [RM] Suppression de $WIFIPHISHER_DIR..."
+    printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$WIFIPHISHER_DIR"
     sudo rm -rf "$WIFIPHISHER_DIR"
   else
-    echo "  [SKIP] Répertoire $WIFIPHISHER_DIR non trouvé."
+    printf "$WIFI_UNINSTALL_SKIP_DIR\n" "$WIFIPHISHER_DIR"
   fi
 
   # Nettoyage du binaire wrapper s'il existe
   if [[ -f /usr/bin/wifiphisher ]]; then
-    echo "  [RM] Suppression de /usr/bin/wifiphisher..."
+    printf "$WIFI_UNINSTALL_REMOVE_BIN\n" "/usr/bin/wifiphisher"
     sudo rm -f /usr/bin/wifiphisher
   fi
 
-  echo "[WiFi] wifiphisher désinstallé."
+  printf "$WIFI_UNINSTALL_DONE\n" "wifiphisher"
 }
 
 uninstall_roguehostapd_python() {
-  echo "[WiFi] Désinstallation de roguehostapd (module Python + repo Git)..."
+  echo "$WIFI_UNINSTALL_ROGUEHOSTAPD"
 
   # 1) Supprimer le repo Git /opt/roguehostapd
   if [[ -d "$ROGUEHOSTAPD_DIR" ]]; then
-    echo "  [RM] Suppression de $ROGUEHOSTAPD_DIR..."
+    printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$ROGUEHOSTAPD_DIR"
     sudo rm -rf "$ROGUEHOSTAPD_DIR"
   else
-    echo "  [SKIP] Répertoire $ROGUEHOSTAPD_DIR non trouvé."
+    printf "$WIFI_UNINSTALL_SKIP_DIR\n" "$ROGUEHOSTAPD_DIR"
   fi
 
   # 2) Essayer de supprimer le module Python de site-packages (best effort)
@@ -44,20 +44,20 @@ uninstall_roguehostapd_python() {
     site="/usr/lib/python${ver}/site-packages"
     if [[ -d "${site}" ]]; then
       if [[ -d "${site}/roguehostapd" ]]; then
-        echo "  [RM] Suppression du paquet Python roguehostapd dans ${site}..."
+        printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "${site}/roguehostapd"
         sudo rm -rf "${site}/roguehostapd"
       fi
       if compgen -G "${site}/roguehostapd*.egg-info" >/dev/null 2>&1; then
-        echo "  [RM] Suppression des métadonnées roguehostapd*.egg-info dans ${site}..."
+        printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "${site}/roguehostapd*.egg-info"
         sudo rm -rf "${site}/roguehostapd"*.egg-info
       fi
     fi
   done
 
-  echo "[WiFi] roguehostapd (module Python) désinstallé (si présent)."
+  printf "$WIFI_UNINSTALL_DONE\n" "roguehostapd (module Python)"
 }
 
-echo "[WiFi] Désinstallation de la stack WiFi..."
+echo "$WIFI_UNINSTALL_REMOVING"
 
 PKGS_RAW=$(read_stack_packages "$SCRIPT_DIR")
 PAC_PKGS="${PKGS_RAW%%|*}"
@@ -70,12 +70,12 @@ uninstall_wifiphisher
 uninstall_roguehostapd_python
 
 # 3) Désinstaller roguehostapd (paquet pacman issu du PKGBUILD)
-echo "[WiFi] Désinstallation du paquet roguehostapd..."
+printf "$WIFI_UNINSTALL_REMOVE_PIPMODULE\n" "roguehostapd"
 remove_pkg "roguehostapd"
 
 # 4) Désinstaller d'abord les paquets AUR
 if [[ -n "$AUR_PKGS" ]]; then
-  echo "[WiFi] Désinstallation des paquets AUR: $AUR_PKGS"
+  printf "$INSTALL_AUR_PACKAGES\n"
   for a in $AUR_PKGS; do
     remove_pkg "$a"
   done
@@ -83,13 +83,12 @@ fi
 
 # 5) Puis désinstaller les paquets pacman
 if [[ -n "$PAC_PKGS" ]]; then
-  echo "[WiFi] Désinstallation des paquets pacman: $PAC_PKGS"
+  printf "$INSTALL_PACMAN_PACKAGES\n"
   for p in $PAC_PKGS; do
     remove_pkg "$p"
   done
 fi
 
 echo ""
-echo "[WiFi] ✓ Désinstallation terminée."
-echo "[WiFi] Note: python, python-pip et git ont été préservés (paquets protégés)."
+echo "$WIFI_UNINSTALL_COMPLETE"
 echo ""

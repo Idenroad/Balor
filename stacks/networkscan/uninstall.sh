@@ -10,7 +10,7 @@ source "$ROOT_DIR/lib/common.sh"
 
 echo ""
 echo "=============================================="
-echo " Désinstallation de la Stack de scans réseaux"
+echo "$NETWORKSCAN_UNINSTALL_TITLE"
 echo "=============================================="
 echo ""
 
@@ -21,7 +21,7 @@ IFS='|' read -r pacman_list aur_list <<< "$packages_data"
 all_pkgs="$pacman_list $aur_list"
 
 if [[ -n "$all_pkgs" ]]; then
-  echo "[Balor] Désinstallation des paquets..."
+  echo "$NETWORKSCAN_UNINSTALL_REMOVING"
   for pkg in $all_pkgs; do
     remove_pkg "$pkg"
   done
@@ -29,6 +29,6 @@ fi
 
 echo ""
 echo "=========================================="
-echo " Stack de scans réseaux désinstallée !"
+echo "$NETWORKSCAN_UNINSTALL_COMPLETE"
 echo "=========================================="
 echo ""

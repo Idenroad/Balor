@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+BALORSH_ROOT="${BALORSH_ROOT:-/opt/balorsh}"
+STACKS_DIR="${STACKS_DIR:-$BALORSH_ROOT/stacks}"
+VERSION_FILE="${VERSION_FILE:-$BALORSH_ROOT/VERSION}"
+COMMON_FILE="${COMMON_FILE:-$BALORSH_ROOT/lib/common.sh}"
+I18N_FILE="${I18N_FILE:-$BALORSH_ROOT/lib/i18n.sh}"
+BALORSH_DATA_DIR="/opt/balorsh/data"
+
+# Load i18n if available
+[[ -f "$I18N_FILE" ]] && source "$I18N_FILE"
+
+# Ensure data dir exists (created by installer). If missing, instruct user and exit.
+if [[ ! -d "$BALORSH_DATA_DIR" ]]; then
+  cat >&2 <<EOF
+${BALORSH_DATA_DIR_MISSING:-[!] Le dossier /opt/balorsh/data est manquant.}
+${BALORSH_RUN_INSTALLER:-Exécutez l'installateur pour le créer :}
+  sudo bash install.sh
+${BALORSH_OR_CREATE_MANUALLY:-Ou créez-le manuellement :}
+  sudo mkdir -p /opt/balorsh/data && sudo chown \${SUDO_USER:-\$USER}:\${SUDO_USER:-\$USER} /opt/balorsh/data && sudo chmod 775 /opt/balorsh/data
+EOF
+  exit 1
+fi
+
+read_version() {
+  [[ -f "$VERSION_FILE" ]] && tr -d ' \n\r\t' < "$VERSION_FILE" || echo "unknown"
+}
+print_version() { echo "balorsh $(read_version)"; }
+
+print_help() {
+  cat <<'EOF'
+Usage:
+  balorsh --help | -h
+  balorsh --version | -V
+  balorsh list
+  balorsh <stack>            # ouvre le menu de la stack
+  balorsh <stack> --help     # affiche l'aide de la stack
+  balorsh <stack> list       # liste les actions de la stack
+EOF
+}
+
+die() { printf "${BALORSH_ERROR:-Erreur: %s}\\n" "$*" >&2; exit 1; }
+
+declare -a ACTION_KEYS=()
+declare -A ACTION_LABEL=()
+declare -A ACTION_FUNC=()
+
+register_action() {
+  local key="$1" label="$2" fn="$3"
+  ACTION_KEYS+=("$key")
+  ACTION_LABEL["$key"]="$label"
+  ACTION_FUNC["$key"]="$fn"
+}
+
+clear_actions() {
+  ACTION_KEYS=()
+  declare -A ACTION_LABEL=()
+  declare -A ACTION_FUNC=()
+}
+
+actions_list() {
+  for k in "${ACTION_KEYS[@]}"; do
+    printf "%-20s %s\n" "$k" "${ACTION_LABEL[$k]}"
+  done
+}
+
+menu_select_key() {
+  local -a keys=("${ACTION_KEYS[@]}")
+  if (( ${#keys[@]} == 0 )); then
+    echo "${BALORSH_NO_ACTIONS:-[!] Aucune action disponible.}" >&2
+    return 1
+  fi
+
+  {
+    echo "${BALORSH_ACTIONS_AVAILABLE:-Actions disponibles:}"
+    local i=1 k
+    for k in "${keys[@]}"; do
+      printf "  %2d) %s\n" "$i" "${ACTION_LABEL[$k]}"
+      ((i++))
+    done
+    echo "${BALORSH_QUIT:-   0) Quitter}"
+  } >&2
+
+  local choice
+  while true; do
+    read -r -p "${BALORSH_CHOICE:-Choix: }" choice </dev/tty
+    [[ "$choice" =~ ^[0-9]+$ ]] || { echo "${BALORSH_INVALID_INPUT:-Entrée invalide.}" >&2; continue; }
+    (( choice == 0 )) && return 1
+    (( choice >= 1 && choice <= ${#keys[@]} )) || { echo "${BALORSH_OUT_OF_RANGE:-Hors plage.}" >&2; continue; }
+    printf '%s\n' "${keys[choice-1]}"
+    return 0
+  done
+}
+
+run_stack() {
+  local stack="$1"; shift || true
+  local stack_file="$STACKS_DIR/$stack/commands.sh"
+  if [[ ! -f "$stack_file" ]]; then
+    printf "${BALORSH_UNKNOWN_STACK:-Stack inconnue ou non installée: %s (attendu: %s)}\\n" "$stack" "$stack_file" >&2
+    exit 1
+  fi
+
+  [[ -f "$COMMON_FILE" ]] && source "$COMMON_FILE"
+  source "$stack_file"
+
+  # Si la stack définit stack_menu(), on l'appelle
+  if declare -F stack_menu >/dev/null; then
+    stack_menu "$@"
+    return 0
+  fi
+
+  # Sinon on attend stack_register_actions()
+  if ! declare -F stack_register_actions >/dev/null; then
+    printf "${BALORSH_NO_MENU_NO_REGISTER:-La stack '%s' ne définit pas stack_register_actions() ni stack_menu()}\\n" "$stack" >&2
+    exit 1
+  fi
+
+  clear_actions
+  stack_register_actions
+
+  if (( ${#ACTION_KEYS[@]} == 0 )); then
+    printf "${BALORSH_NO_ACTIONS_DECLARED:-[!] La stack '%s' n'a déclaré aucune action.}\\n" "$stack" >&2
+    return 1
+  fi
+
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    if declare -F stack_help >/dev/null; then stack_help; else actions_list; fi
+    return 0
+  fi
+
+  if [[ "${1:-}" == "list" ]]; then
+    actions_list
+    return 0
+  fi
+
+  local key
+  key="$(menu_select_key)" || return 0
+  [[ -n "${key:-}" ]] || die "${BALORSH_NO_ACTION_SELECTED:-Aucune action sélectionnée.}"
+  
+  if [[ ! -v "ACTION_FUNC[$key]" ]]; then
+    printf "${BALORSH_UNKNOWN_ACTION:-Action inconnue: '%s' (pas de fonction associée).}\\n" "$key" >&2
+    exit 1
+  fi
+  
+  local fn="${ACTION_FUNC[$key]}"
+  if ! declare -F "$fn" >/dev/null; then
+    printf "${BALORSH_ACTION_FUNC_NOT_FOUND:-Fonction d'action introuvable: %s}\\n" "$fn" >&2
+    exit 1
+  fi
+  
+  "$fn"
+}
+
+main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    --help|-h|"")
+      print_help
+      ;;
+    --version|-V)
+      print_version
+      ;;
+    list)
+      if [[ -d "$STACKS_DIR" ]]; then
+        ls -1 "$STACKS_DIR" | grep -E -v '(^\.|common|lib)' | sort
+      else
+        echo "${BALORSH_NO_STACKS_DIR:-Aucun dossier stacks trouvé.}" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      if [[ -z "$cmd" ]]; then
+        print_help
+        exit 0
+      fi
+      run_stack "$cmd" "${@:2}"
+      ;;
+  esac
+}
+
+main "$@"
