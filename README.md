@@ -92,7 +92,7 @@ The **Legion** idea: a curated set of tools, tested and integrated, rather than 
   - can be added or removed without breaking the rest.
 
 <br>
-<img width="862" height="457" alt="Copie d&#39;écran_20251212_093355" src="https://github.com/user-attachments/assets/0dd9f2de-e5a9-4e3c-80f1-f601778d6d7f" />
+<img width="581" height="759" alt="Copie d&#39;écran_20251214_220511" src="https://github.com/user-attachments/assets/44aca9d1-e658-4d4f-adc1-12ecccc58839" />
 
 
 
