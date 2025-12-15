@@ -220,7 +220,13 @@ wifi_check_chipset() {
       printf "${C_GOOD}${WIFI_CHIPSET_DETECTED}${C_RESET}\n" "$detected_chipset"
       echo ""
       # Chercher la ligne correspondante dans le fichier
-      grep -A 0 "$detected_chipset" "$chipsets_file" | head -n 1 | sed 's/^| /  /' | sed 's/ | / - /g' | sed 's/ |$//'
+      local chipset_line
+      chipset_line=$(grep -A 0 "$detected_chipset" "$chipsets_file" 2>/dev/null | head -n 1 || true)
+      if [[ -n "$chipset_line" ]]; then
+        echo "$chipset_line" | sed 's/^| /  /' | sed 's/ | / - /g' | sed 's/ |$//'
+      else
+        echo -e "${C_YELLOW}${WIFI_CHIPSET_NOT_IN_DATABASE:-Chipset non référencé dans la base de données}${C_RESET}"
+      fi
       echo ""
     else
       echo -e "${C_YELLOW}${WIFI_CHIPSET_NOT_DETECTED}${C_RESET}"
@@ -231,7 +237,7 @@ wifi_check_chipset() {
     printf "${C_SHADOW}${WIFI_CHIPSET_MORE_INFO}${C_RESET}\n" "$chipsets_file"
     echo ""
     echo -e "${C_INFO}${WIFI_CHIPSET_SUPPORTED_TABLE}${C_RESET}"
-    grep -E "^\|.*\|" "$chipsets_file" | head -n 10
+    grep -E "^\|.*\|" "$chipsets_file" 2>/dev/null | head -n 10 || true
   else
     printf "${C_YELLOW}${WIFI_CHIPSET_FILE_NOT_FOUND}${C_RESET}\n" "$chipsets_file"
   fi
