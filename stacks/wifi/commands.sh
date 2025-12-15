@@ -1094,7 +1094,7 @@ wifi_convert_handshake() {
   read -r capfile
   if [[ ! -f "$capfile" ]]; then
     echo -e "${C_RED}$(printf "$WIFI_FILE_NOT_FOUND" "$capfile")${C_RESET}" >&2
-    return 1
+    return 0
   fi
 
   # nom de base propre
@@ -1107,10 +1107,10 @@ wifi_convert_handshake() {
   if command -v hcxpcapngtool &>/dev/null; then
     local out_file="$hash_dir/${base}_${ts}.hc22000"
     echo -e "${C_HIGHLIGHT}$WIFI_CONVERTING_WITH_HCXPCAPNGTOOL $out_file${C_RESET}" >&2
-    sudo hcxpcapngtool -o "$out_file" "$capfile"
-    if [[ $? -ne 0 || ! -f "$out_file" ]]; then
+    sudo hcxpcapngtool -o "$out_file" "$capfile" || true
+    if [[ ! -f "$out_file" ]]; then
       echo -e "${C_RED}$WIFI_HCXPCAPNGTOOL_FAILED_SHORT${C_RESET}" >&2
-      return 1
+      return 0
     fi
     echo -e "${C_GOOD}$WIFI_FILE_CONVERTED $out_file${C_RESET}"
     return 0
@@ -1119,17 +1119,17 @@ wifi_convert_handshake() {
     # cap2hccapx génère généralement un .hccapx (plus ancien), on le nomme clairement
     local out_file="$hash_dir/${base}_${ts}.hccapx"
     echo -e "${C_HIGHLIGHT}$WIFI_CONVERTING_WITH_CAP2HCCAPX $out_file${C_RESET}" >&2
-    sudo cap2hccapx "$capfile" "$out_file"
-    if [[ $? -ne 0 || ! -f "$out_file" ]]; then
+    sudo cap2hccapx "$capfile" "$out_file" || true
+    if [[ ! -f "$out_file" ]]; then
       echo -e "${C_RED}$WIFI_CAP2HCCAPX_FAILED${C_RESET}" >&2
-      return 1
+      return 0
     fi
     echo -e "${C_GOOD}$WIFI_FILE_CONVERTED $out_file${C_RESET}"
     return 0
 
   else
     echo -e "${C_RED}$WIFI_NEITHER_TOOL_FOUND${C_RESET}" >&2
-    return 1
+    return 0
   fi
 }
 
