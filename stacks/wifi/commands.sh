@@ -87,7 +87,7 @@ wifi_check_monitor_mode() {
   fi
 }
 
-# Vérifie le chipset de l'interface WiFi et affiche les recommandations
+# Vérifie le chipset de l'interface WiFi et affiche les recommandations voir md
 wifi_check_chipset() {
   clear
   local iface="${1:-$IFACE}"
