@@ -92,8 +92,7 @@ L'idée de la **Legion** : un ensemble d'outils choisis, testés, intégrés, pl
   - peut être installée ou supprimée sans casser le reste.
 
 <br>
-
-<img width="862" height="457" alt="Copie d&#39;écran_20251212_093355" src="https://github.com/user-attachments/assets/26a46be1-d485-47ee-a9b2-12621a9d5b1a" />
+<img width="590" height="753" alt="Copie d&#39;écran_20251214_185152" src="https://github.com/user-attachments/assets/15592244-d438-4192-9fd7-27452a49ee5b" />
 
 
 ---
