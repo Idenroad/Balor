@@ -40,6 +40,9 @@ if [[ -n "$aur_list" ]]; then
   done
 fi
 
+# Créer le dossier data pour marquer l'installation
+ensure_stack_data_dir "remoteaccess"
+
 echo ""
 echo "=========================================="
 echo "$REMOTE_INSTALL_COMPLETE"

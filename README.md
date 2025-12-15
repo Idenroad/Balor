@@ -4,13 +4,41 @@
 
 <img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
 
-**Balor** is a pentesting overlay built on top of [CachyOS Handheld Edition](https://cachyos.org/), designed for portable machines (Steam‑Deck‑like devices, Lenovo Legion Go, laptops, mini‑PCs).  
-We used to rely on [BlackArch](https://github.com/BlackArch/blackarch) but compatibility issues forced us to patch many packages.  
-We decided to optimize the installation of a smaller, opinionated set of tools we actually use, by forking some BlackArch files and using AUR or CachyOS repositories directly.
+**Balor** is a **modular pentesting framework** built on top of [CachyOS Handheld Edition](https://cachyos.org/), designed for portable offensive security platforms (Steam‑Deck‑like devices, Lenovo Legion Go, laptops, mini‑PCs).
 
-**Idenroad** adds a **legion** of pentest and OSINT tools, organized into **stacks** that can be cleanly enabled or removed.
+## 🚀 Framework, Not Just Scripts
 
-Goal: turn a clean CachyOS base into a **portable offensive platform**, scripted, reproducible, without trashing the whole system.
+Balor has evolved from simple scripts into a **comprehensive pentesting framework** featuring:
+
+- 🎯 **Modular Stack Architecture** – Independent modules (WiFi, LLM, NetworkScan, Password, OSINT, WebExploit, RemoteAccess)
+- 🔧 **Plugin System** – Each stack installs/uninstalls cleanly without system pollution
+- 🌐 **Complete i18n** – 400+ translated variables supporting French & English
+- 🎨 **Unified UI** – Consistent color schemes and standardized menus across all stacks
+- 📚 **Shared Libraries** – Reusable components (lib/common.sh, lib/i18n.sh)
+- 🤖 **AI Integration** – Built-in LLM capabilities with specialized security personas
+- ⚙️ **Centralized Management** – Single `balorsh` wrapper for all operations
+
+## 🤖 AI-Powered Security Analysis
+
+One of Balor's unique features is the **LLM Stack** powered by Ollama, providing AI-assisted pentesting:
+
+### Security Personas
+- 🔴 **Red Team** – Offensive security expert for attack vectors and exploitation
+- 🔵 **Blue Team** – Defensive security specialist for hardening and detection
+- 🟣 **Purple Team** – Combined offensive/defensive analysis and recommendations
+- 📊 **Log Analyst** – Automated log analysis and threat detection
+- 🎓 **Base** – General cybersecurity knowledge and education
+
+### Key Features
+- 💬 **Interactive Chat** – Real-time consultation with AI security experts
+- 📝 **Log Analysis** – Automated security log parsing and threat identification
+- 💾 **Session Management** – Save and review conversations and analyses
+- 🔄 **Model Switching** – Hot-swap between personas without restart
+- 🧠 **Custom Models** – Import and use your own fine-tuned security models
+
+All LLM interactions run **locally** via Ollama for privacy and offline capability.
+
+Goal: turn a clean CachyOS base into a **portable offensive platform** with AI assistance, scripted, reproducible, without trashing the whole system.
 
 ---
 
@@ -256,6 +284,43 @@ Inspiration and improvements: the design borrows ideas from [NETREAPER](https://
 
 - Ensure core **remote access tools** are present (SSH, RDP, SMB, NFS),
 - with a nice UI (Remmina) suited for handhelds.
+
+---
+
+### 8. 🤖 Balor AI (0.8)
+
+**Included tools:**
+
+- ollama (0.8)
+- curl (0.8)
+- xmllint (0.8)
+- tcpdump (0.8)
+
+**AI Models available:**
+
+- Seneca Cybersecurity LLM (~4 GB) — Recommended
+- WhiteRabbitNeo 2.5 Qwen Coder (~4 GB)
+- Custom GGUF models (via URL)
+
+**Features:**
+
+- **5 dynamic personas**: base, loganalyst, redteam, blueteam, purpleteam
+- **Log analysis**: Automatically converts XML/PCAP files and analyzes them with AI
+- **Interactive chat**: Conversation with cybersecurity-focused AI models
+- **Multi-model support**: Switch between models or install multiple ones
+- **Extensible**: Add custom personas by creating Modelfiles in `lib/models/`
+
+**Use cases:**
+
+- Analyze Balor output logs (XML, PCAP, TXT) with AI assistance
+- Get cybersecurity advice from specialized AI personas
+- Perform offensive/defensive security research with AI-powered insights
+- Generate and analyze security reports
+
+**Goal:**
+
+- Bring **local AI assistance** directly into your pentesting workflow,
+- with privacy-focused, offline LLMs running entirely on your device.
 
 ---
 

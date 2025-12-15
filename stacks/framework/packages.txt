@@ -1,4 +1,5 @@
 # Framework stack - Balor
+#stack 1.0
 
 aur:burpsuite
 pacman:metasploit

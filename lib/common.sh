@@ -110,6 +110,30 @@ read_stack_packages() {
   echo "${pacman_pkgs[*]}|${aur_pkgs[*]}"
 }
 
+# Créer le dossier data pour une stack (marqueur d'installation)
+ensure_stack_data_dir() {
+  local stack_name="$1"
+  local data_dir="${BALOR_OPT_ROOT:-/opt/balorsh}/data/$stack_name"
+  
+  if [[ ! -d "$data_dir" ]]; then
+    if ! mkdir -p "$data_dir" 2>/dev/null; then
+      sudo mkdir -p "$data_dir" || return 1
+    fi
+  fi
+  
+  # Permissions et ownership
+  if ! chmod 775 "$data_dir" 2>/dev/null; then
+    sudo chmod 775 "$data_dir" || true
+  fi
+  
+  local owner="${SUDO_USER:-$USER}"
+  if ! chown "$owner:$owner" "$data_dir" 2>/dev/null; then
+    sudo chown "$owner:$owner" "$data_dir" || true
+  fi
+  
+  return 0
+}
+
 # --- Aides couleur du terminal ---
 # Convertit une couleur hexadécimale #RRGGBB en séquence ANSI 24-bit
 # pour la couleur du texte (foreground)
@@ -132,5 +156,9 @@ C_GOOD="$(hex_to_ansi_fg '#06FB06')"
 C_HIGHLIGHT="$(hex_to_ansi_fg '#25FD9D')"
 # couleur d'ombre/étiquette subtile (effet atténué)
 C_SHADOW="\033[2m"
+# Couleurs additionnelles pour les messages
+C_INFO="$(hex_to_ansi_fg '#25FD9D')"   # Cyan/turquoise pour info
+C_RED="\033[91m"                        # Rouge pour erreurs
+C_YELLOW="\033[93m"                     # Jaune pour warnings
 
-export C_RESET C_BOLD C_ACCENT1 C_ACCENT2 C_GOOD C_HIGHLIGHT C_SHADOW
+export C_RESET C_BOLD C_ACCENT1 C_ACCENT2 C_GOOD C_HIGHLIGHT C_SHADOW C_INFO C_RED C_YELLOW

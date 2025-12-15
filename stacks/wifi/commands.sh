@@ -17,6 +17,7 @@ C_ACCENT1="${C_ACCENT1:-\033[38;2;117;30;233m}"
 C_ACCENT2="${C_ACCENT2:-\033[38;2;144;117;226m}"
 C_GOOD="${C_GOOD:-\033[38;2;6;251;6m}"
 C_HIGHLIGHT="${C_HIGHLIGHT:-\033[38;2;37;253;157m}"
+C_SHADOW="${C_SHADOW:-\033[38;2;128;128;128m}"
 C_RED="\e[31m"
 C_YELLOW="\e[33m"
 C_INFO="\e[36m"
@@ -32,11 +33,18 @@ wifi_list_ifaces() {
 
 # Affiche les interfaces WiFi détectées
 wifi_show_ifaces() {
+  clear
   echo -e "${C_ACCENT1}${WIFI_IFACES_DETECTED}${C_RESET}"
   local ifs
   ifs="$(wifi_list_ifaces)"
   if [[ -n "$ifs" ]]; then
     echo "$ifs"
+    echo ""
+    echo -e "${C_INFO}${WIFI_CHECK_CHIPSET_PROMPT}${C_RESET}"
+    read -r check_chip
+    if [[ "$check_chip" =~ ^[oO]$ ]]; then
+      wifi_check_chipset
+    fi
   else
     echo "$WIFI_IFACES_NONE"
   fi
@@ -63,14 +71,188 @@ wifi_select_iface() {
   return 0
 }
 
+# Vérifie si une interface est en mode monitor
+wifi_check_monitor_mode() {
+  local iface="$1"
+  if command -v iw &>/dev/null; then
+    # Utiliser iw pour vérifier le type
+    local mode=$(iw dev "$iface" info 2>/dev/null | grep -w type | awk '{print $2}')
+    [[ "$mode" == "monitor" ]]
+  elif command -v iwconfig &>/dev/null; then
+    # Fallback sur iwconfig
+    iwconfig "$iface" 2>/dev/null | grep -q "Mode:Monitor"
+  else
+    # Si aucune commande disponible, on suppose que ce n'est pas en mode monitor
+    return 1
+  fi
+}
+
+# Vérifie le chipset de l'interface WiFi et affiche les recommandations
+wifi_check_chipset() {
+  clear
+  local iface="${1:-$IFACE}"
+  if [[ -z "$iface" ]]; then
+    wifi_select_iface || return
+    iface="$IFACE"
+  fi
+  
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "${C_GOOD}Vérification du chipset pour: $iface${C_RESET}"
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  # Obtenir les informations du chipset
+  local chipset_info=""
+  local driver_info=""
+  local vendor_id=""
+  local device_id=""
+  
+  # Méthode 1: via ethtool pour obtenir le driver
+  if command -v ethtool &>/dev/null; then
+    driver_info=$(ethtool -i "$iface" 2>/dev/null | grep -E "^driver:" | awk '{print $2}')
+  fi
+  
+  # Méthode 2: Lire directement depuis sysfs
+  local sys_path="/sys/class/net/$iface/device"
+  if [[ -e "$sys_path/vendor" ]]; then
+    vendor_id=$(cat "$sys_path/vendor" 2>/dev/null || echo "")
+    device_id=$(cat "$sys_path/device" 2>/dev/null || echo "")
+  fi
+  
+  # Méthode 3: via lsusb pour interfaces USB
+  local usb_info=""
+  if command -v lsusb &>/dev/null; then
+    # Trouver le périphérique USB associé à l'interface
+    if [[ -e "$sys_path" ]]; then
+      # Remonter dans l'arborescence USB pour trouver l'ID
+      local dev_path=$(readlink -f "$sys_path")
+      # Extraire l'ID USB du chemin (format: idVendor:idProduct)
+      if [[ "$dev_path" =~ usb ]]; then
+        local usb_id_vendor=$(cat "$sys_path/../idVendor" 2>/dev/null || echo "")
+        local usb_id_product=$(cat "$sys_path/../idProduct" 2>/dev/null || echo "")
+        if [[ -n "$usb_id_vendor" && -n "$usb_id_product" ]]; then
+          usb_info=$(lsusb -d "${usb_id_vendor}:${usb_id_product}" 2>/dev/null || echo "")
+        fi
+      fi
+    fi
+  fi
+  
+  # Méthode 4: via lspci pour interfaces PCI (seulement pour cette interface)
+  local pci_info=""
+  if command -v lspci &>/dev/null && [[ -z "$usb_info" ]]; then
+    # Obtenir l'adresse PCI de cette interface spécifique
+    if [[ -e "$sys_path" ]]; then
+      local pci_addr=$(basename $(readlink -f "$sys_path") 2>/dev/null || echo "")
+      if [[ -n "$pci_addr" && "$pci_addr" =~ ^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9]$ ]]; then
+        pci_info=$(lspci -s "$pci_addr" 2>/dev/null || echo "")
+      fi
+    fi
+  fi
+  
+  # Afficher les informations collectées
+  echo -e "${C_HIGHLIGHT}${WIFI_CHIPSET_INFO_TITLE}${C_RESET}"
+  echo -e "${WIFI_CHIPSET_INFO_INTERFACE} ${C_INFO}$iface${C_RESET}"
+  [[ -n "$driver_info" ]] && echo -e "${WIFI_CHIPSET_INFO_DRIVER} ${C_INFO}$driver_info${C_RESET}"
+  [[ -n "$usb_info" ]] && echo -e "${WIFI_CHIPSET_INFO_USB} ${C_INFO}$usb_info${C_RESET}"
+  [[ -n "$pci_info" ]] && echo -e "${WIFI_CHIPSET_INFO_PCI} ${C_INFO}$pci_info${C_RESET}"
+  echo ""
+  
+  # Analyser et afficher les recommandations depuis le fichier chipsets.md
+  local chipsets_file="$ROOT_DIR/doc/wifi/chipsets_${LANG}.md"
+  # Fallback to chipsets.md (English) if language-specific file doesn't exist
+  [[ ! -f "$chipsets_file" ]] && chipsets_file="$ROOT_DIR/doc/wifi/chipsets.md"
+  
+  if [[ -f "$chipsets_file" ]]; then
+    echo -e "${C_HIGHLIGHT}${WIFI_CHIPSET_RECOMMENDATIONS}${C_RESET}"
+    echo ""
+    
+    # Détecter le chipset à partir du DRIVER principalement (plus fiable)
+    local detected_chipset=""
+    
+    # Prioriser la détection par driver
+    if echo "$driver_info" | grep -qi "ath9k\|ath9k_htc"; then
+      detected_chipset="Atheros AR9271"
+    elif echo "$driver_info" | grep -qi "rt2800usb\|rt3070\|rt3572"; then
+      detected_chipset="Ralink RT3070/RT3572"
+    elif echo "$driver_info" | grep -qi "rtl8812au\|8812au\|rtw.*8812"; then
+      detected_chipset="Realtek RTL8812AU"
+    elif echo "$driver_info" | grep -qi "rtl8814au\|8814au\|rtw.*8814"; then
+      detected_chipset="Realtek RTL8814AU"
+    elif echo "$driver_info" | grep -qi "rtl8187\|rtl8187b"; then
+      detected_chipset="Realtek RTL8187"
+    elif echo "$driver_info" | grep -qi "rtw88.*8822\|rtl8822\|8822bu"; then
+      detected_chipset="Realtek RTL8822BU"
+    elif echo "$driver_info" | grep -qi "rtw88.*8821\|rtl8821\|8821"; then
+      detected_chipset="Realtek RTL8821"
+    elif echo "$driver_info" | grep -qi "rtw88.*88\|rtl88"; then
+      detected_chipset="Realtek RTL88xx"
+    elif echo "$driver_info" | grep -qi "mt7610\|mt7612"; then
+      detected_chipset="Mediatek MT7610U/MT7612U"
+    elif echo "$driver_info" | grep -qi "brcm\|bcm43\|b43"; then
+      detected_chipset="Broadcom BCM43xx"
+    elif echo "$driver_info" | grep -qi "^iwl\|iwlwifi"; then
+      detected_chipset="Intel Wireless"
+    else
+      # Fallback sur USB/PCI si le driver n'est pas reconnu
+      local all_info="$usb_info $pci_info"
+      if echo "$all_info" | grep -qi "atheros.*9271\|ar9271"; then
+        detected_chipset="Atheros AR9271"
+      elif echo "$all_info" | grep -qi "ralink.*3070\|rt3070\|rt3572"; then
+        detected_chipset="Ralink RT3070/RT3572"
+      elif echo "$all_info" | grep -qi "realtek.*8812"; then
+        detected_chipset="Realtek RTL8812AU"
+      elif echo "$all_info" | grep -qi "realtek.*8814"; then
+        detected_chipset="Realtek RTL8814AU"
+      elif echo "$all_info" | grep -qi "realtek.*8822"; then
+        detected_chipset="Realtek RTL8822BU"
+      elif echo "$all_info" | grep -qi "realtek.*8187"; then
+        detected_chipset="Realtek RTL8187"
+      elif echo "$all_info" | grep -qi "mediatek.*761"; then
+        detected_chipset="Mediatek MT7610U/MT7612U"
+      elif echo "$all_info" | grep -qi "broadcom"; then
+        detected_chipset="Broadcom BCM43xx"
+      elif echo "$all_info" | grep -qi "intel.*wireless"; then
+        detected_chipset="Intel Wireless"
+      fi
+    fi
+    
+    if [[ -n "$detected_chipset" ]]; then
+      printf "${C_GOOD}${WIFI_CHIPSET_DETECTED}${C_RESET}\n" "$detected_chipset"
+      echo ""
+      # Chercher la ligne correspondante dans le fichier
+      grep -A 0 "$detected_chipset" "$chipsets_file" | head -n 1 | sed 's/^| /  /' | sed 's/ | / - /g' | sed 's/ |$//'
+      echo ""
+    else
+      echo -e "${C_YELLOW}${WIFI_CHIPSET_NOT_DETECTED}${C_RESET}"
+      echo ""
+    fi
+    
+    # Afficher le tableau complet
+    printf "${C_SHADOW}${WIFI_CHIPSET_MORE_INFO}${C_RESET}\n" "$chipsets_file"
+    echo ""
+    echo -e "${C_INFO}${WIFI_CHIPSET_SUPPORTED_TABLE}${C_RESET}"
+    grep -E "^\|.*\|" "$chipsets_file" | head -n 10
+  else
+    printf "${C_YELLOW}${WIFI_CHIPSET_FILE_NOT_FOUND}${C_RESET}\n" "$chipsets_file"
+  fi
+  
+  echo ""
+}
+
 # Active le mode monitor sur une interface
 wifi_start_monitor_mode() {
+  clear
   local iface="$1"
   printf "${C_HIGHLIGHT}${WIFI_ENABLE_MONITOR}${C_RESET}\n" "$iface"
 
   if command -v airmon-ng &>/dev/null; then
     sudo airmon-ng check kill
     sudo airmon-ng start "$iface"
+    # airmon-ng peut renommer l'interface (wlan0 -> wlan0mon)
+    local new_iface="${iface}mon"
+    if ip link show "$new_iface" &>/dev/null; then
+      iface="$new_iface"
+    fi
   else
     sudo ip link set "$iface" down
     if command -v iw &>/dev/null; then
@@ -81,14 +263,17 @@ wifi_start_monitor_mode() {
     sudo ip link set "$iface" up
   fi
 
-  sleep 1
+  sleep 2
+  # Vérifier si l'interface ou l'interface renommée est en mode monitor
   if wifi_check_monitor_mode "$iface"; then
     printf "${C_GOOD}${WIFI_MONITOR_ENABLED}${C_RESET}\n" "$iface"
     IFACE="$iface"
-    return 0
+  elif wifi_check_monitor_mode "${1}mon"; then
+    printf "${C_GOOD}${WIFI_MONITOR_ENABLED}${C_RESET}\n" "${1}mon"
+    IFACE="${1}mon"
   else
     printf "${C_RED}${WIFI_MONITOR_FAILED}${C_RESET}\n" "$iface"
-    return 1
+    printf "${C_YELLOW}Note: L'interface peut être en mode monitor malgré l'erreur. Vérifiez avec iwconfig.${C_RESET}\n"
   fi
 }
 
@@ -209,34 +394,50 @@ wifi_set_channel() {
 
 # Channel hopper (boucle sur canaux 1-11)
 wifi_channel_hop() {
+  clear
   local iface="$1"
   echo -e "${C_HIGHLIGHT}Channel hopping sur $iface (Ctrl+C pour arrêter)...${C_RESET}"
+  
+  # Trap pour gérer proprement Ctrl+C
+  trap 'echo -e "\n${C_INFO}Channel hopping arrêté.${C_RESET}"; return 0' SIGINT SIGTERM
+  
   while true; do
     for ch in {1..11}; do
-      wifi_set_channel "$iface" "$ch"
+      wifi_set_channel "$iface" "$ch" 2>/dev/null || true
       printf "\rCanal: %2d" "$ch"
       sleep 0.3
     done
   done
+  
+  # Réinitialiser le trap
+  trap - SIGINT SIGTERM
 }
 
 # Scan wifi avec airodump-ng
 wifi_airodump() {
+  clear
   local iface="${1:-$IFACE}"
   if [[ -z "$iface" ]]; then
-    wifi_select_iface || return 1
+    wifi_select_iface || return
     iface="$IFACE"
   fi
+  # Créer le répertoire de sortie
+  : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
+  local scan_dir="$BALORSH_DATA_DIR/wifi/scans"
+  mkdir -p "$scan_dir"
+  local outfile="$scan_dir/scan_$(date +%Y%m%d_%H%M%S)"
   echo -e "${C_HIGHLIGHT}Scan WiFi avec airodump-ng sur $iface...${C_RESET}"
-  sudo airodump-ng "$iface"
+  echo -e "${C_INFO}Fichiers sauvegardés dans: $scan_dir/${C_RESET}"
+  sudo airodump-ng -w "$outfile" --output-format csv,pcap "$iface"
 }
 
 # Attaque automatique avec wifite
 wifi_wifite() {
+  clear
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  local wifite_dir="$BALORSH_DATA_DIR/wifi_wifite"
+  local wifite_dir="$BALORSH_DATA_DIR/wifi/wifite"
   mkdir -p "$wifite_dir"
-  cd "$wifite_dir" || return 1
+  cd "$wifite_dir" || { echo -e "${C_RED}Erreur: impossible de créer le répertoire${C_RESET}"; return; }
   echo -e "${C_HIGHLIGHT}$WIFI_WIFITE_LAUNCH...${C_RESET}"
   echo -e "${C_INFO}$WIFI_CAPTURES_SAVED_IN : $wifite_dir/hs/${C_RESET}"
   
@@ -254,9 +455,10 @@ wifi_wifite() {
 
 # Reconnaissance avec bettercap
 wifi_bettercap() {
+  clear
   local iface="${1:-$IFACE}"
   if [[ -z "$iface" ]]; then
-    wifi_select_iface || return 1
+    wifi_select_iface || return
     iface="$IFACE"
   fi
   echo -e "${C_HIGHLIGHT}$WIFI_BETTERCAP_LAUNCH $iface...${C_RESET}"
@@ -265,20 +467,95 @@ wifi_bettercap() {
 
 # Attaque deauth avec aireplay-ng
 wifi_aireplay_deauth() {
+  clear
   local iface="${1:-$IFACE}"
   local bssid client count
-  wifi_select_iface || return 1
+  wifi_select_iface || return
   iface="$IFACE"
+  
+  # Proposer un scan avant l'attaque
+  echo -e "${C_HIGHLIGHT}Voulez-vous scanner les réseaux d'abord? (O/n)${C_RESET}"
+  read -r do_scan
+  do_scan="${do_scan:-o}"
+  
+  local tmpfile=""
+  if [[ "$do_scan" =~ ^[oO]$ ]]; then
+    echo -e "${C_INFO}Scan de 20 secondes pour détecter réseaux et clients...${C_RESET}"
+    : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
+    local scan_dir="$BALORSH_DATA_DIR/wifi/scans"
+    mkdir -p "$scan_dir"
+    tmpfile="$scan_dir/temp_scan_$(date +%Y%m%d_%H%M%S)"
+    sudo timeout 20 airodump-ng -w "$tmpfile" --output-format csv "$iface" 2>/dev/null || true
+    if [[ -f "${tmpfile}-01.csv" ]]; then
+      echo -e "\n${C_GOOD}═══ Réseaux (Access Points) détectés ═══${C_RESET}"
+      awk -F',' 'NR>2 && NF>13 && $1 ~ /^[0-9A-Fa-f:]+$/ && length($1)==17 {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$4); gsub(/^ +| +$/,"",$14); if($1 != "") printf "  BSSID: \033[36m%-17s\033[0m  CH: %-2s  ESSID: %s\n", $1, $4, $14}' "${tmpfile}-01.csv" | grep -v '^$' || echo "  ${C_YELLOW}Aucun réseau détecté${C_RESET}"
+      
+      echo -e "\n${C_GOOD}═══ Clients (Stations) détectés ═══${C_RESET}"
+      # Les clients sont après la ligne vide dans le CSV
+      awk -F',' 'BEGIN{clients=0} /^Station MAC/ {clients=1; next} clients==1 && NF>5 && $1 ~ /^[0-9A-Fa-f:]+$/ && length($1)==17 {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$6); if($1 != "" && $6 != "") printf "  Client: \033[36m%-17s\033[0m  → AP: %s\n", $1, $6}' "${tmpfile}-01.csv" | grep -v '^$' || echo "  ${C_YELLOW}Aucun client détecté (peut nécessiter plus de temps)${C_RESET}"
+      echo ""
+      
+      echo -e "${C_SHADOW}Astuce: Notez le BSSID de l'AP cible et éventuellement le MAC d'un client connecté${C_RESET}"
+      echo ""
+    fi
+  fi
+  
   echo -ne "$WIFI_PROMPT_BSSID_TARGET"
   read -r bssid
-  echo -ne "$WIFI_PROMPT_CLIENT_MAC"
+  
+  # Extraire le canal du BSSID depuis le scan
+  local channel=""
+  if [[ -n "$tmpfile" && -f "${tmpfile}-01.csv" ]]; then
+    channel=$(awk -F',' -v target="$bssid" 'NR>2 && NF>13 && $1 ~ /^[0-9A-Fa-f:]+$/ {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$4); if(tolower($1) == tolower(target)) print $4}' "${tmpfile}-01.csv" | head -n1)
+    
+    echo -e "\n${C_INFO}Clients détectés pour ce BSSID:${C_RESET}"
+    awk -F',' -v target="$bssid" 'BEGIN{clients=0} /^Station MAC/ {clients=1; next} clients==1 && NF>5 && $1 ~ /^[0-9A-Fa-f:]+$/ {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$6); if($6 == target) printf "  %s\n", $1}' "${tmpfile}-01.csv" | grep -v '^$' || echo "  ${C_YELLOW}Aucun client spécifique détecté pour ce BSSID${C_RESET}"
+    echo ""
+  fi
+  
+  # Demander le canal si non trouvé dans le scan
+  if [[ -z "$channel" ]]; then
+    echo -ne "$WIFI_PROMPT_CHANNEL"
+    read -r channel
+  else
+    echo -e "${C_INFO}Canal détecté: ${C_HIGHLIGHT}$channel${C_RESET}"
+    echo -ne "Confirmer le canal [$channel]: "
+    read -r channel_input
+    channel="${channel_input:-$channel}"
+  fi
+  
+  echo -ne "${C_HIGHLIGHT}$WIFI_PROMPT_CLIENT_MAC (appuyez sur Entrée pour attaquer tous les clients)${C_RESET}: "
   read -r client
-  client="${client:-all}"
+  
   echo -ne "$WIFI_PROMPT_DEAUTH_COUNT"
   read -r count
   count="${count:-10}"
+  
+  # Changer l'interface sur le bon canal
+  echo -e "${C_INFO}Configuration de l'interface sur le canal $channel...${C_RESET}"
+  sudo iw dev "$iface" set channel "$channel" 2>/dev/null || {
+    echo -e "${C_YELLOW}Impossible de changer le canal avec iw, tentative avec iwconfig...${C_RESET}"
+    sudo iwconfig "$iface" channel "$channel" 2>/dev/null || {
+      echo -e "${C_RED}Erreur: impossible de changer le canal${C_RESET}"
+    }
+  }
+  
   echo -e "${C_HIGHLIGHT}$WIFI_DEAUTH_LAUNCH...${C_RESET}"
-  sudo aireplay-ng --deauth "$count" -a "$bssid" -c "$client" "$iface"
+  
+  # Si client vide ou 'all', ne pas utiliser -c (broadcast deauth)
+  if [[ -z "$client" || "$client" == "all" || "$client" == "ALL" ]]; then
+    echo -e "${C_INFO}Mode broadcast: déconnexion de tous les clients de $bssid${C_RESET}"
+    sudo aireplay-ng --deauth "$count" -a "$bssid" "$iface" || {
+      echo -e "${C_RED}Erreur lors de l'attaque deauth${C_RESET}"
+      echo -e "${C_YELLOW}Vérifiez que l'interface est en mode monitor et sur le bon canal${C_RESET}"
+    }
+  else
+    echo -e "${C_INFO}Mode ciblé: déconnexion du client $client de $bssid${C_RESET}"
+    sudo aireplay-ng --deauth "$count" -a "$bssid" -c "$client" "$iface" || {
+      echo -e "${C_RED}Erreur lors de l'attaque deauth${C_RESET}"
+      echo -e "${C_YELLOW}Vérifiez que l'interface est en mode monitor et sur le bon canal${C_RESET}"
+    }
+  fi
 }
 
 # Attaque WPS (reaver, bully, pixie dust)
@@ -303,8 +580,27 @@ wifi_wps_attack() {
 
 # Capture handshake
 wifi_capture_handshake() {
-  wifi_select_iface || return 1
+  clear
+  wifi_select_iface || return
   local iface="$IFACE"
+  
+  # Proposer un scan avant la capture
+  echo -e "${C_HIGHLIGHT}Voulez-vous scanner les réseaux d'abord? (o/N)${C_RESET}"
+  read -r do_scan
+  if [[ "$do_scan" =~ ^[oO]$ ]]; then
+    echo -e "${C_INFO}Scan de 10 secondes...${C_RESET}"
+    : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
+    local scan_dir="$BALORSH_DATA_DIR/wifi/scans"
+    mkdir -p "$scan_dir"
+    local tmpfile="$scan_dir/temp_scan_$(date +%Y%m%d_%H%M%S)"
+    sudo timeout 10 airodump-ng -w "$tmpfile" --output-format csv "$iface" 2>/dev/null || true
+    if [[ -f "${tmpfile}-01.csv" ]]; then
+      echo -e "\n${C_GOOD}Réseaux détectés:${C_RESET}"
+      awk -F',' 'NR>2 && $1 ~ /:/ {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$4); gsub(/^ +| +$/,"",$14); printf "BSSID: %-17s  CH: %-2s  ESSID: %s\n", $1, $4, $14}' "${tmpfile}-01.csv" | grep -v '^$'
+      echo ""
+    fi
+  fi
+  
   echo -ne "$WIFI_PROMPT_BSSID_TARGET"
   read -r bssid
   echo -ne "$WIFI_PROMPT_CHANNEL"
@@ -312,7 +608,7 @@ wifi_capture_handshake() {
 
   # Crée un sous-dossier captures wifi si besoin
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  local capture_dir="$BALORSH_DATA_DIR/wifi_captures"
+  local capture_dir="$BALORSH_DATA_DIR/wifi/captures"
   mkdir -p "$capture_dir"
 
   local outfile="$capture_dir/handshake_$(date +%Y%m%d_%H%M%S)"
@@ -327,10 +623,11 @@ wifi_capture_handshake() {
 
 # ----- Gestion de session -----
 wifi_start_session() {
+  clear
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
   local ts
   ts="$(date +%Y%m%d_%H%M%S)"
-  WIFI_SESSION_DIR="$BALORSH_DATA_DIR/wifi_sessions/$ts"
+  WIFI_SESSION_DIR="$BALORSH_DATA_DIR/wifi/sessions/$ts"
   mkdir -p "$WIFI_SESSION_DIR"
   printf "$WIFI_SESSION_STARTED\n" "$WIFI_SESSION_DIR"
   echo "start_time=$(date -Iseconds)" >"$WIFI_SESSION_DIR/session.meta"
@@ -348,14 +645,15 @@ wifi_end_session() {
 
 # ----- Aide auto handshake / capture -----
 wifi_auto_handshake() {
+  clear
   local iface="${1:-$IFACE}"
   if [[ -z "$iface" ]]; then
-    wifi_select_iface || return 1
+    wifi_select_iface || return
     iface="$IFACE"
   fi
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  mkdir -p "$BALORSH_DATA_DIR/wifi_captures"
-  local outfile="$BALORSH_DATA_DIR/wifi_captures/auto_$(date +%Y%m%d_%H%M%S)"
+  mkdir -p "$BALORSH_DATA_DIR/wifi/captures"
+  local outfile="$BALORSH_DATA_DIR/wifi/captures/auto_$(date +%Y%m%d_%H%M%S)"
 
   echo -e "${C_HIGHLIGHT}Auto-capture handshake sur $iface...${C_RESET}"
 
@@ -367,9 +665,9 @@ wifi_auto_handshake() {
     if [[ -n "$oflag" ]]; then
       # construit la commande dynamiquement pour inclure le drapeau de statut seulement si supporté
       if [[ -n "$sflag" ]]; then
-        sudo hcxdumptool -i "$iface" "$sflag" "$oflag" "${outfile}.pcapng"
+        sudo hcxdumptool -i "$iface" "$sflag" "$oflag" "${outfile}.pcapng" || true
       else
-        sudo hcxdumptool -i "$iface" "$oflag" "${outfile}.pcapng"
+        sudo hcxdumptool -i "$iface" "$oflag" "${outfile}.pcapng" || true
       fi
 
       echo -e "${C_GOOD}$WIFI_CAPTURE_FILE_GENERATED : ${outfile}.pcapng${C_RESET}"
@@ -381,7 +679,7 @@ wifi_auto_handshake() {
           echo -e "${C_GOOD}$(printf "$WIFI_FILE_HASH_CREATED" "${outfile}.hc22000")${C_RESET}"
           write_hash_metadata "${outfile}.hc22000" "${outfile}.pcapng" "$conv_out" || true
         else
-          echo -e "${C_RED}$WIFI_HCXDUMPTOOL_FAILED${C_RESET}"
+          echo -e "${C_RED}Conversion échouée${C_RESET}"
           printf '%s\n' "$conv_out"
         fi
       else
@@ -405,15 +703,16 @@ wifi_auto_handshake() {
 
 # ----- Capture PMKID + conversion -----
 wifi_capture_pmkid() {
+  clear
   local iface="${1:-$IFACE}"
-  if [[ -z "$iface" ]]; then wifi_select_iface || return 1; iface="$IFACE"; fi
+  if [[ -z "$iface" ]]; then wifi_select_iface || return; iface="$IFACE"; fi
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  mkdir -p "$BALORSH_DATA_DIR/wifi_captures"
-  local out="${BALORSH_DATA_DIR}/wifi_captures/pmkid_$(date +%Y%m%d_%H%M%S)"
+  mkdir -p "$BALORSH_DATA_DIR/wifi/captures"
+  local out="${BALORSH_DATA_DIR}/wifi/captures/pmkid_$(date +%Y%m%d_%H%M%S)"
 
   if ! command -v hcxdumptool &>/dev/null; then
-    echo -e "${C_RED}$WIFI_HCXDUMPTOOL_MISSING${C_RESET}"
-    return 1
+    echo -e "${C_RED}hcxdumptool n'est pas installé${C_RESET}"
+    return
   fi
 
   echo -e "${C_HIGHLIGHT}$(printf "$WIFI_CAPTURE_PMKID_ON" "$iface")${C_RESET}"
@@ -422,9 +721,9 @@ wifi_capture_pmkid() {
   sflag=$(hcxdumptool_status_flag || true)
   if [[ -n "$oflag" ]]; then
     if [[ -n "$sflag" ]]; then
-      sudo hcxdumptool -i "$iface" "$sflag" "$oflag" "${out}.pcapng"
+      sudo hcxdumptool -i "$iface" "$sflag" "$oflag" "${out}.pcapng" || true
     else
-      sudo hcxdumptool -i "$iface" "$oflag" "${out}.pcapng"
+      sudo hcxdumptool -i "$iface" "$oflag" "${out}.pcapng" || true
     fi
     # Tente la conversion et les métadonnées après la capture
     if command -v hcxpcapngtool &>/dev/null; then
@@ -434,7 +733,7 @@ wifi_capture_pmkid() {
         echo -e "${C_GOOD}$(printf "$WIFI_FILE_CONVERTED" "${out}.hc22000")${C_RESET}"
         write_hash_metadata "${out}.hc22000" "${out}.pcapng" "$conv_out" || true
       else
-        echo -e "${C_RED}$WIFI_HCXDUMPTOOL_FAILED${C_RESET}"
+        echo -e "${C_RED}Conversion échouée${C_RESET}"
         printf '%s\n' "$conv_out"
       fi
     else
@@ -444,13 +743,15 @@ wifi_capture_pmkid() {
     echo -e "${C_YELLOW}$WIFI_OUTPUT_NOT_SUPPORTED_USING_AIRODUMP${C_RESET}"
     sudo airodump-ng -w "$out" --write-interval 1 --output-format pcap,csv,netxml "$iface"
     echo -e "${C_GOOD}$WIFI_FILES_GENERATED : ${out}-01.cap / ${out}-01.csv${C_RESET}"
-    return 0
+    return
   fi
 
   if command -v hcxpcapngtool &>/dev/null; then
     local hashout="${out}.hc22000"
-    sudo hcxpcapngtool -o "$hashout" "${out}.pcapng"
-    echo -e "${C_GOOD}$WIFI_CONVERSION_SUCCESSFUL : $hashout${C_RESET}"
+    sudo hcxpcapngtool -o "$hashout" "${out}.pcapng" || true
+    if [[ -f "$hashout" ]]; then
+      echo -e "${C_GOOD}$WIFI_CONVERSION_SUCCESSFUL : $hashout${C_RESET}"
+    fi
   else
     echo -e "${C_HIGHLIGHT}$WIFI_CAPTURE_SAVED: ${out}.pcapng${C_RESET}"
   fi
@@ -458,29 +759,158 @@ wifi_capture_pmkid() {
 
 # ----- Sélection de cible TUI (fzf) -----
 wifi_select_target_tui() {
+  clear
   local iface="${1:-$IFACE}"
-  if [[ -z "$iface" ]]; then wifi_select_iface || return 1; iface="$IFACE"; fi
+  if [[ -z "$iface" ]]; then wifi_select_iface || return; iface="$IFACE"; fi
 
   if ! command -v fzf &>/dev/null; then
-    echo -e "${C_RED}$WIFI_FZF_NOT_INSTALLED${C_RESET}"
-    return 1
+    echo -e "${C_RED}fzf n'est pas installé. Installez-le avec: sudo apt install fzf${C_RESET}"
+    return
+  fi
+
+  # Vérifier que l'interface est en mode monitor
+  if ! wifi_check_monitor_mode "$iface"; then
+    echo -e "${C_YELLOW}L'interface $iface n'est pas en mode monitor. Activation...${C_RESET}"
+    wifi_start_monitor_mode "$iface" || {
+      echo -e "${C_RED}Impossible d'activer le mode monitor${C_RESET}"
+      return 1
+    }
   fi
 
   # Scan rapide pour collecter les BSSIDs
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  local tmpdir
-  tmpdir=$(mktemp -d "$BALORSH_DATA_DIR/.tmp.wifi_scan.XXXXXX")
-  sudo timeout 6 airodump-ng -w "$tmpdir/scan" --output-format csv "$iface" >/dev/null 2>&1 || true
+  mkdir -p "$BALORSH_DATA_DIR/wifi/scans"
+  local tmpdir="$BALORSH_DATA_DIR/wifi/scans/tmp_$(date +%Y%m%d_%H%M%S)"
+  mkdir -p "$tmpdir"
+  echo -e "${C_INFO}Scan en cours (15 secondes)...${C_RESET}"
+  sudo timeout 15 airodump-ng -w "$tmpdir/scan" --output-format csv "$iface" 2>/dev/null || true
   local csv
-  csv=$(ls -1 "$tmpdir"/*.csv 2>/dev/null | head -n1 || true)
+  csv=$(find "$tmpdir" -name "*.csv" -type f 2>/dev/null | head -n1 || true)
   if [[ -z "$csv" || ! -f "$csv" ]]; then
-    echo "$WIFI_SCAN_FAILED_RETRY";
-    rm -rf "$tmpdir" || true
-    return 1
+    echo -e "${C_RED}Échec du scan ou aucun réseau détecté.${C_RESET}";
+    echo -e "${C_YELLOW}Vérifiez que l'interface est en mode monitor et qu'il y a des réseaux WiFi à proximité.${C_RESET}"
+    echo -e "${C_INFO}Interface utilisée: $iface${C_RESET}"
+    rm -rf "$tmpdir" 2>/dev/null || true
+    return
   fi
 
-  # Analyse le CSV pour BSSID, canal, ESSID
-  awk -F',' 'NR>2 && $1 ~ /:/ {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$4); gsub(/^ +| +$/,"",$14); print $1"\tch:"$4"\t"$14}' "$csv" | sed '/^$/d' | fzf --prompt='Sélectionner cible: ' --height=40% --reverse | awk '{print $1}'
+  # Analyse le CSV pour BSSID, canal, ESSID, et puissance du signal
+  echo -e "${C_GOOD}Réseaux détectés - sélectionnez avec fzf (↑↓ pour naviguer, Entrée pour valider):${C_RESET}"
+  
+  # Préparer les données pour fzf
+  local networks_list
+  networks_list=$(awk -F',' 'NR>2 && NF>13 && $1 ~ /^[0-9A-Fa-f:]+$/ && length($1)==17 {
+    gsub(/^ +| +$/,"",$1); 
+    gsub(/^ +| +$/,"",$4); 
+    gsub(/^ +| +$/,"",$6);
+    gsub(/^ +| +$/,"",$9);
+    gsub(/^ +| +$/,"",$14); 
+    if($1 != "") printf "%s\tCH:%s\tPWR:%sdBm\tENC:%s\t%s\n", $1, $4, $9, $6, $14
+  }' "$csv" | sed '/^$/d')
+  
+  if [[ -z "$networks_list" ]]; then
+    echo -e "${C_RED}Aucun réseau trouvé dans le scan.${C_RESET}"
+    echo -e "${C_INFO}Fichier CSV: $csv${C_RESET}"
+    rm -rf "$tmpdir" 2>/dev/null || true
+    return
+  fi
+  
+  local selected
+  selected=$(echo "$networks_list" | fzf --prompt='🎯 Sélectionner cible WiFi: ' --height=60% --reverse --border --header='BSSID              Canal  Puissance  Chiffrement  ESSID' || true)
+  
+  if [[ -z "$selected" ]]; then
+    echo -e "${C_YELLOW}Aucune cible sélectionnée${C_RESET}"
+    rm -rf "$tmpdir" 2>/dev/null || true
+    return
+  fi
+  
+  local target_bssid=$(echo "$selected" | awk '{print $1}')
+  local target_channel=$(echo "$selected" | awk -F'CH:' '{print $2}' | awk '{print $1}')
+  local target_essid=$(echo "$selected" | awk -F'\t' '{print $NF}')
+  
+  clear
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "${C_GOOD}✓ Cible sélectionnée${C_RESET}"
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "  BSSID   : ${C_INFO}$target_bssid${C_RESET}"
+  echo -e "  Canal   : ${C_INFO}$target_channel${C_RESET}"
+  echo -e "  ESSID   : ${C_INFO}$target_essid${C_RESET}"
+  echo ""
+  
+  # Proposer des actions
+  echo -e "${C_HIGHLIGHT}Que voulez-vous faire ?${C_RESET}"
+  echo -e "  ${C_GOOD}1)${C_RESET} Capturer handshake (airodump-ng)"
+  echo -e "  ${C_GOOD}2)${C_RESET} Attaque deauth"
+  echo -e "  ${C_GOOD}3)${C_RESET} Attaque WPS"
+  echo -e "  ${C_GOOD}4)${C_RESET} Copier les infos dans le presse-papier"
+  echo -e "  ${C_SHADOW}0)${C_RESET} Retour au menu"
+  echo ""
+  echo -ne "${C_ACCENT1}Votre choix: ${C_RESET}"
+  read -r action
+  
+  case "$action" in
+    1)
+      # Capture handshake
+      local capture_dir="$BALORSH_DATA_DIR/wifi/captures"
+      mkdir -p "$capture_dir"
+      local outfile="$capture_dir/handshake_$(echo $target_essid | tr ' ' '_')_$(date +%Y%m%d_%H%M%S)"
+      echo -e "${C_HIGHLIGHT}Capture du handshake pour $target_essid sur le canal $target_channel...${C_RESET}"
+      echo -e "${C_INFO}Astuce: Dans un autre terminal, lancez une attaque deauth pour forcer la reconnexion${C_RESET}"
+      sudo airodump-ng --bssid "$target_bssid" -c "$target_channel" -w "$outfile" "$iface"
+      ;;
+    2)
+      # Attaque deauth
+      echo -e "${C_INFO}Clients détectés pour ce BSSID:${C_RESET}"
+      awk -F',' -v target="$target_bssid" 'BEGIN{clients=0} /^Station MAC/ {clients=1; next} clients==1 && NF>5 && $1 ~ /^[0-9A-Fa-f:]+$/ {gsub(/^ +| +$/,"",$1); gsub(/^ +| +$/,"",$6); if($6 == target) printf "  %s\n", $1}' "$csv" | grep -v '^$' || echo "  ${C_YELLOW}Aucun client détecté${C_RESET}"
+      echo ""
+      echo -ne "${C_HIGHLIGHT}MAC du client (Entrée pour tous): ${C_RESET}"
+      read -r client_mac
+      echo -ne "${C_HIGHLIGHT}Nombre de paquets deauth [10]: ${C_RESET}"
+      read -r deauth_count
+      deauth_count="${deauth_count:-10}"
+      
+      if [[ -z "$client_mac" ]]; then
+        sudo aireplay-ng --deauth "$deauth_count" -a "$target_bssid" "$iface" || echo -e "${C_RED}Erreur deauth${C_RESET}"
+      else
+        sudo aireplay-ng --deauth "$deauth_count" -a "$target_bssid" -c "$client_mac" "$iface" || echo -e "${C_RED}Erreur deauth${C_RESET}"
+      fi
+      ;;
+    3)
+      # Attaque WPS
+      echo -e "${C_HIGHLIGHT}Attaque WPS sur $target_essid...${C_RESET}"
+      echo -e "  ${C_GOOD}1)${C_RESET} Reaver"
+      echo -e "  ${C_GOOD}2)${C_RESET} Bully"
+      echo -e "  ${C_GOOD}3)${C_RESET} Pixie Dust (reaver)"
+      echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}"
+      read -r wps_choice
+      wps_choice="${wps_choice:-1}"
+      case "$wps_choice" in
+        1) sudo reaver -i "$iface" -b "$target_bssid" -c "$target_channel" -vv ;;
+        2) sudo bully -b "$target_bssid" -c "$target_channel" "$iface" ;;
+        3) sudo reaver -i "$iface" -b "$target_bssid" -c "$target_channel" -K 1 -vv ;;
+      esac
+      ;;
+    4)
+      # Copier dans le presse-papier
+      if command -v xclip &>/dev/null; then
+        echo "BSSID: $target_bssid | Canal: $target_channel | ESSID: $target_essid" | xclip -selection clipboard
+        echo -e "${C_GOOD}✓ Informations copiées dans le presse-papier${C_RESET}"
+      elif command -v wl-copy &>/dev/null; then
+        echo "BSSID: $target_bssid | Canal: $target_channel | ESSID: $target_essid" | wl-copy
+        echo -e "${C_GOOD}✓ Informations copiées dans le presse-papier (Wayland)${C_RESET}"
+      else
+        echo -e "${C_YELLOW}xclip ou wl-clipboard non installé${C_RESET}"
+        echo -e "${C_INFO}BSSID: $target_bssid | Canal: $target_channel | ESSID: $target_essid${C_RESET}"
+      fi
+      ;;
+    0|"")
+      echo -e "${C_INFO}Retour au menu...${C_RESET}"
+      ;;
+    *)
+      echo -e "${C_RED}Choix invalide${C_RESET}"
+      ;;
+  esac
+  
   rm -rf "$tmpdir" || true
 }
 
@@ -576,8 +1006,8 @@ wifi_enrich_bssid() {
 # ----- Export Kismet/GPX (basique) -----
 wifi_export_kismet() {
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  local src_dir="${1:-$BALORSH_DATA_DIR/wifi_captures}"
-  local out="${2:-$BALORSH_DATA_DIR/wifi_export_$(date +%Y%m%d_%H%M%S)}"
+  local src_dir="${1:-$BALORSH_DATA_DIR/wifi/captures}"
+  local out="${2:-$BALORSH_DATA_DIR/wifi/export_$(date +%Y%m%d_%H%M%S)}"
   mkdir -p "$out"
   cp -a "$src_dir"/* "$out" 2>/dev/null || true
   printf "$WIFI_EXPORT_COPIED\n" "$out"
@@ -585,8 +1015,7 @@ wifi_export_kismet() {
 
 # ----- Messages d'aide -----
 wifi_help() {
-  cat <<EOF
-$WIFI_HELP_TITLE
+  echo -e "$WIFI_HELP_TITLE
 
 $WIFI_HELP_1
 $WIFI_HELP_2
@@ -618,8 +1047,7 @@ $WIFI_HELP_DEPS_FZF
 $WIFI_HELP_DEPS_MACCHANGER
 $WIFI_HELP_DEPS_CRACKERS
 
-$WIFI_HELP_FOOTER
-EOF
+$WIFI_HELP_FOOTER"
 }
 
 # ----- Aide au redémarrage de NetworkManager -----
@@ -647,12 +1075,13 @@ wifi_restart_networkmanager() {
   return 1
 }
 
-# Convertir capture en format hashcat (sortie --> $BALORSH_DATA_DIR/wifi_hashes)
+# Convertir capture en format hashcat (sortie --> $BALORSH_DATA_DIR/wifi/hashes)
 wifi_convert_handshake() {
+  clear
   # dossier de sortie centralisé
   : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
-  local hash_dir="$BALORSH_DATA_DIR/wifi_hashes"
-  mkdir -p "$hash_dir" || { echo -e "${C_RED}$WIFI_ERROR_CREATE_DIR $hash_dir${C_RESET}"; return 1; }
+  local hash_dir="$BALORSH_DATA_DIR/wifi/hashes"
+  mkdir -p "$hash_dir" || { echo -e "${C_RED}$WIFI_ERROR_CREATE_DIR $hash_dir${C_RESET}"; return; }
 
   # lecture fichier source (prompt sur stderr pour être sûr d'afficher)
   echo -ne "$WIFI_PROMPT_CAPTURE_FILE" >&2
@@ -872,56 +1301,58 @@ wifi_build_excludes() {
 
 # Crack avec aircrack-ng (utilise select_wordlist => prepare_wordlist => lance)
 wifi_crack_aircrack() {
+  clear
   echo -ne "$WIFI_CAPTURE_FILE_CAP: "
   read -r capfile
   if [[ ! -f "$capfile" ]]; then
     echo -e "${C_RED}$WIFI_ERROR_CAPTURE_FILE_NOT_FOUND${C_RESET}"
-    return 1
+    return
   fi
 
   echo "$WIFI_WORDLIST_SELECTION"
   local sel
-  sel=$(select_wordlist) || return 1
+  sel=$(select_wordlist) || { echo -e "${C_YELLOW}Sélection annulée${C_RESET}"; return; }
 
-  prepare_wordlist "$sel" || return 1
+  prepare_wordlist "$sel" || { echo -e "${C_RED}Erreur de préparation de la wordlist${C_RESET}"; return; }
   local wl="$PREP_WORDLIST_PATH"
 
   if [[ ! -f "$wl" ]]; then
     echo -e "${C_RED}$WIFI_WORDLIST_NOT_FOUND_AFTER_PREP_SIMPLE $wl${C_RESET}"
     cleanup_prepared_wordlist
-    return 1
+    return
   fi
 
   echo -e "${C_HIGHLIGHT}$WIFI_LAUNCHING_AIRCRACK_WITH_WORDLIST $wl${C_RESET}"
-  sudo aircrack-ng -w "$wl" "$capfile"
+  sudo aircrack-ng -w "$wl" "$capfile" || echo -e "${C_YELLOW}Crack non réussi ou interrompu${C_RESET}"
 
   cleanup_prepared_wordlist
 }
 
 # Crack avec hashcat (utilise la même préparation)
 wifi_crack_hashcat() {
+  clear
   echo -ne "$WIFI_HASH_CAPTURE_FILE_PROMPT: "
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
     echo -e "${C_RED}$(printf "$WIFI_FILE_NOT_FOUND" "$hashfile")${C_RESET}"
-    return 1
+    return
   fi
 
   echo "$WIFI_WORDLIST_SELECTION"
   local sel
-  sel=$(select_wordlist) || return 1
+  sel=$(select_wordlist) || { echo -e "${C_YELLOW}Sélection annulée${C_RESET}"; return; }
 
-  prepare_wordlist "$sel" || return 1
+  prepare_wordlist "$sel" || { echo -e "${C_RED}Erreur de préparation de la wordlist${C_RESET}"; return; }
   local wl="$PREP_WORDLIST_PATH"
 
   if [[ ! -f "$wl" ]]; then
     echo -e "${C_RED}$(printf "$WIFI_WORDLIST_NOT_FOUND_AFTER_PREP" "$wl")${C_RESET}"
     cleanup_prepared_wordlist
-    return 1
+    return
   fi
 
   echo -e "${C_HIGHLIGHT}$WIFI_HASHCAT_LAUNCH (mode 22000) $WIFI_WITH_WORDLIST : $wl${C_RESET}"
-  sudo hashcat -m 22000 -a 0 "$hashfile" "$wl" --status --status-timer=15
+  sudo hashcat -m 22000 -a 0 "$hashfile" "$wl" --status --status-timer=15 || echo -e "${C_YELLOW}Crack non réussi ou interrompu${C_RESET}"
 
   cleanup_prepared_wordlist
 }
@@ -1329,45 +1760,45 @@ stack_menu() {
     echo -e "${C_ACCENT2}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}"
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_INTERFACE}${C_RESET}                                 "
     echo -e "   ${C_BOLD}${WIFI_MENU_HINT}${C_RESET}            "
-    echo -e "   ${WIFI_MENU_1}                                      "
-    echo -e "   ${WIFI_MENU_2}        "
-    echo -e "   ${WIFI_MENU_3}                      "
-    echo -e "   ${WIFI_MENU_4}                                              "
+    echo -e "   ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${WIFI_MENU_1}${C_RESET}                                      "
+    echo -e "   ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${WIFI_MENU_2}${C_RESET}        "
+    echo -e "   ${C_HIGHLIGHT}3)${C_RESET} ${C_INFO}${WIFI_MENU_3}${C_RESET}                      "
+    echo -e "   ${C_HIGHLIGHT}4)${C_RESET} ${C_INFO}${WIFI_MENU_4}${C_RESET}                                              "
     echo -e "                                                                   "
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_RECON}${C_RESET}                                      "
-    echo -e "   ${WIFI_MENU_5}                                    "
-    echo -e "   ${WIFI_MENU_6}                              "
-    echo -e "   ${WIFI_MENU_7}                                   "
+    echo -e "   ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${WIFI_MENU_5}${C_RESET}                                    "
+    echo -e "   ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${WIFI_MENU_6}${C_RESET}                              "
+    echo -e "   ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${WIFI_MENU_7}${C_RESET}                                   "
     echo -e "                                                                   "
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_ATTACKS}${C_RESET}                                             "
-    echo -e "   ${WIFI_MENU_8}                               "
-    echo -e "   ${WIFI_MENU_9}                   "
-    echo -e "   ${WIFI_MENU_10}                                        "
+    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${WIFI_MENU_8}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${WIFI_MENU_9}${C_RESET}                   "
+    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${WIFI_MENU_10}${C_RESET}                                        "
     echo -e "                                                                   "
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_CRACKING}${C_RESET}                                            "
-    echo -e "   ${WIFI_MENU_11}                                   "
-    echo -e "   ${WIFI_MENU_12}                                       "
-    echo -e "   ${WIFI_MENU_13}                             "
-    echo -e "   ${WIFI_MENU_14}                           "
-    echo -e "   ${WIFI_MENU_15}                               "
-    echo -e "   ${WIFI_MENU_16}                       "
-    echo -e "   ${WIFI_MENU_17}                               "
-    echo -e "   ${WIFI_MENU_18}                                   "
-    echo -e "   ${WIFI_MENU_19}                                           "
-    echo -e "   ${WIFI_MENU_20}             "
-    echo -e "   ${WIFI_MENU_21}                                  "
-    echo -e "   ${WIFI_MENU_22}                        "
-    echo -e "   ${WIFI_MENU_23}                                 "
+    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${WIFI_MENU_11}${C_RESET}                                   "
+    echo -e "   ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${WIFI_MENU_12}${C_RESET}                                       "
+    echo -e "   ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${WIFI_MENU_13}${C_RESET}                             "
+    echo -e "   ${C_HIGHLIGHT}14)${C_RESET} ${C_INFO}${WIFI_MENU_14}${C_RESET}                           "
+    echo -e "   ${C_HIGHLIGHT}15)${C_RESET} ${C_INFO}${WIFI_MENU_15}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}16)${C_RESET} ${C_INFO}${WIFI_MENU_16}${C_RESET}                       "
+    echo -e "   ${C_HIGHLIGHT}17)${C_RESET} ${C_INFO}${WIFI_MENU_17}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}18)${C_RESET} ${C_INFO}${WIFI_MENU_18}${C_RESET}                                   "
+    echo -e "   ${C_HIGHLIGHT}19)${C_RESET} ${C_INFO}${WIFI_MENU_19}${C_RESET}                                           "
+    echo -e "   ${C_HIGHLIGHT}20)${C_RESET} ${C_INFO}${WIFI_MENU_20}${C_RESET}             "
+    echo -e "   ${C_HIGHLIGHT}21)${C_RESET} ${C_INFO}${WIFI_MENU_21}${C_RESET}                                  "
+    echo -e "   ${C_HIGHLIGHT}22)${C_RESET} ${C_INFO}${WIFI_MENU_22}${C_RESET}                        "
+    echo -e "   ${C_HIGHLIGHT}23)${C_RESET} ${C_INFO}${WIFI_MENU_23}${C_RESET}                                 "
     echo -e "                                                                   "
-    echo -e "   ${WIFI_MENU_0}                                                  "
+    echo -e "   ${C_RED}0)${C_RESET} ${C_RED}${WIFI_MENU_0}${C_RESET}                                                  "
     echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
-    echo -ne "$WIFI_PROMPT_CHOICE"
+    echo -ne "${C_ACCENT1}$WIFI_PROMPT_CHOICE${C_RESET}"
     read -r choice
 
     case "$choice" in
       1) wifi_show_ifaces ;;
       2) wifi_select_iface && wifi_start_monitor_mode "$IFACE" ;;
-      3) wifi_select_iface && wifi_stop_monitor_mode "$IFACE" ;;
+      3) if wifi_select_iface; then wifi_stop_monitor_mode "$IFACE" || true; fi ;;
       4) wifi_select_iface && wifi_channel_hop "$IFACE" ;;
       5) wifi_airodump ;;
       6) wifi_wifite ;;

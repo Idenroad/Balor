@@ -55,6 +55,9 @@ else
   echo "$OSINT_VERIFY_JAVA17"
 fi
 
+# Créer le dossier data pour marquer l'installation
+ensure_stack_data_dir "osint"
+
 echo "$OSINT_INSTALL_COMPLETE_MSG"
 echo ""
 echo "$OSINT_MALTEGO_PRECONFIGURED"

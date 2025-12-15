@@ -4,13 +4,41 @@
 
 <img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
 
-**Balor** est une surcouche de pentesting construite au‑dessus de [CachyOS Handheld Edition](https://cachyos.org/), pensée pour les machines portables (Steam Deck‑like, Lenovo Legion Go, laptops, mini‑PC).  
-Nous utilisions [BlackArch](https://github.com/BlackArch/blackarch) mais des problèmes de compatibilité nous forçaient à corriger de nombreux paquets.  
-Nous avons donc décidé d'optimiser l'installation d'outils spécifiques que nous utilisons, en forkant certains fichiers de BlackArch, en utilisant directement l’AUR ou les dépôts de CachyOS.
+**Balor** est un **framework modulaire de pentesting** construit au‑dessus de [CachyOS Handheld Edition](https://cachyos.org/), conçu pour les plateformes offensives portables (Steam Deck‑like, Lenovo Legion Go, laptops, mini‑PC).
 
-**Idenroad** y ajoute une **légion** d'outils pentest et OSINT, organisés en **stacks** activables/désactivables proprement.
+## 🚀 Un Framework, Pas Juste des Scripts
 
-Objectif : transformer une base CachyOS propre en **plateforme offensive portable**, scriptée, reproductible, sans casser tout le système.
+Balor a évolué de simples scripts vers un **framework complet de pentesting** avec :
+
+- 🎯 **Architecture Modulaire** – Modules indépendants (WiFi, LLM, NetworkScan, Password, OSINT, WebExploit, RemoteAccess)
+- 🔧 **Système de Plugins** – Chaque stack s'installe/désinstalle proprement sans polluer le système
+- 🌐 **i18n Complet** – Plus de 400 variables traduites en français et anglais
+- 🎨 **Interface Unifiée** – Schéma de couleurs cohérent et menus standardisés sur tous les stacks
+- 📚 **Bibliothèques Partagées** – Composants réutilisables (lib/common.sh, lib/i18n.sh)
+- 🤖 **Intégration IA** – Capacités LLM intégrées avec personas spécialisés en sécurité
+- ⚙️ **Gestion Centralisée** – Wrapper unique `balorsh` pour toutes les opérations
+
+## 🤖 Analyse de Sécurité Assistée par IA
+
+Une des fonctionnalités uniques de Balor est le **Stack LLM** propulsé par Ollama, offrant du pentesting assisté par IA :
+
+### Personas de Sécurité
+- 🔴 **Red Team** – Expert en sécurité offensive pour vecteurs d'attaque et exploitation
+- 🔵 **Blue Team** – Spécialiste en sécurité défensive pour durcissement et détection
+- 🟣 **Purple Team** – Analyse et recommandations offensives/défensives combinées
+- 📊 **Log Analyst** – Analyse automatisée de logs et détection de menaces
+- 🎓 **Base** – Connaissances générales en cybersécurité et éducation
+
+### Fonctionnalités Clés
+- 💬 **Chat Interactif** – Consultation en temps réel avec des experts IA en sécurité
+- 📝 **Analyse de Logs** – Parsing automatique de logs de sécurité et identification de menaces
+- 💾 **Gestion de Sessions** – Sauvegarde et revue des conversations et analyses
+- 🔄 **Changement de Modèle** – Basculement entre personas sans redémarrage
+- 🧠 **Modèles Personnalisés** – Importation et utilisation de vos propres modèles affinés
+
+Toutes les interactions LLM s'exécutent **localement** via Ollama pour la confidentialité et le mode hors ligne.
+
+Objectif : transformer une base CachyOS propre en **plateforme offensive portable** avec assistance IA, scriptée, reproductible, sans casser tout le système.
 
 ---
 
@@ -100,8 +128,8 @@ Astuce : Dans le menu de la stack WiFi, utilisez l'option [22] pour l'Aide et l'
 
 **Commandes Stack**
 
-- wifi: 23 choices (0.6)
-- networkscan: 18 choices (0.7)
+wifi: 23 choices (0.6)
+networkscan: 18 choices (0.7)
 
 Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://github.com/Nerds489/NETREAPER/). Balor étend cette approche en ajoutant des utilitaires pour le cracking — sélection interactive de wordlists, concaténation récursive de plusieurs listes dans un fichier temporaire préparé, et intégration directe avec `aircrack-ng`/`hashcat` pour un flux de cracking plus fluide.
 

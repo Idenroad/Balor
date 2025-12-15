@@ -3,11 +3,23 @@ set -e
 
 BALOR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Version de l'installateur (lit VERSION si présent)
-VERSION="${VERSION:-$(tr -d ' \n\r\t' < "$BALOR_ROOT/VERSION" 2>/dev/null || echo 'unknown')}"
+# Version de l'installateur (lit la première ligne non-commentaire de VERSION)
+VERSION="${VERSION:-$(grep -v '^#' "$BALOR_ROOT/VERSION" 2>/dev/null | grep -v '^$' | head -n1 | tr -d ' \n\r\t' || echo 'unknown')}"
 
 # shellcheck source=lib/common.sh
 source "$BALOR_ROOT/lib/common.sh"
+
+# Codes couleur
+C_RESET="\e[0m"
+C_BOLD="\e[1m"
+C_ACCENT1="\e[38;2;117;30;233m"
+C_ACCENT2="\e[38;2;144;117;226m"
+C_GOOD="\e[38;2;6;251;6m"
+C_HIGHLIGHT="\e[38;2;37;253;157m"
+C_RED="\e[31m"
+C_YELLOW="\e[33m"
+C_INFO="\e[36m"
+C_SHADOW="\e[90m"
 
 STACKS_DIR="$BALOR_ROOT/stacks"
 BANNER_FILE="$BALOR_ROOT/banner.txt"
@@ -15,17 +27,112 @@ BALOR_OPT_ROOT="${BALOR_OPT_ROOT:-/opt/balorsh}"
 BALOR_BIN_PATH="${BALOR_BIN_PATH:-/usr/local/bin/balorsh}"
 BALOR_WRAPPER_SRC="$BALOR_ROOT/balorsh"
 
-# Affichage du banner Idenroad / Balor
-echo
-if [[ -f "$BANNER_FILE" ]]; then
-  cat "$BANNER_FILE"
-else
-  echo "Balor – Powered by Idenroad"
-fi
-echo
-echo "$INSTALL_HAVE_FUN"
-echo "$INSTALL_BANNER_TITLE"
-echo
+# Lire la version d'une stack depuis le fichier VERSION centralisé
+get_stack_version() {
+  local stack="$1"
+  local version_file="$BALOR_ROOT/VERSION"
+  
+  if [[ -f "$version_file" ]]; then
+    # Chercher la ligne "stack:version" dans VERSION
+    local version=$(grep -E "^${stack}:" "$version_file" | cut -d':' -f2)
+    
+    if [[ -n "$version" ]]; then
+      echo "$version"
+      return
+    fi
+  fi
+  
+  # Fallback: lire depuis packages.txt (rétrocompatibilité)
+  local packages_file="$STACKS_DIR/$stack/packages.txt"
+  if [[ -f "$packages_file" ]]; then
+    local version=$(grep -E '^#stack[[:space:]]+' "$packages_file" | head -n1 | sed -E 's/^#stack[[:space:]]+//')
+    if [[ -n "$version" ]]; then
+      echo "$version"
+      return
+    fi
+  fi
+  
+  echo "${INSTALL_UNKNOWN}"
+}
+
+# Lire la version installée d'une stack depuis le JSON
+get_installed_stack_version() {
+  local stack="$1"
+  local json_file="$BALOR_OPT_ROOT/json/stacks_status.json"
+  
+  if [[ ! -f "$json_file" ]]; then
+    echo "${INSTALL_UNKNOWN}"
+    return
+  fi
+  
+  # Extraire la version depuis le JSON - chercher la ligne exacte avec le nom de la stack
+  local version=$(grep "\"$stack\":" "$json_file" | sed -E 's/.*"version":[[:space:]]*"([^"]+)".*/\1/')
+  
+  if [[ -n "$version" ]]; then
+    echo "$version"
+  else
+    echo "${INSTALL_UNKNOWN}"
+  fi
+}
+
+# Mettre à jour le JSON des stacks installées avec leur version
+update_stacks_json() {
+  local json_dir="$BALOR_OPT_ROOT/json"
+  local json_file="$json_dir/stacks_status.json"
+  
+  # Créer le dossier si nécessaire
+  if [[ ! -d "$json_dir" ]]; then
+    if ! mkdir -p "$json_dir" 2>/dev/null; then
+      sudo mkdir -p "$json_dir" || true
+    fi
+  fi
+  
+  # Permissions et ownership du dossier
+  if ! chmod 775 "$json_dir" 2>/dev/null; then
+    sudo chmod 775 "$json_dir" || true
+  fi
+  owner="${SUDO_USER:-$USER}"
+  if ! chown "$owner:$owner" "$json_dir" 2>/dev/null; then
+    sudo chown "$owner:$owner" "$json_dir" || true
+  fi
+  
+  # Construire le JSON
+  local tmpf=$(mktemp)
+  trap 'rm -f "$tmpf"' RETURN
+  
+  printf '{\n' > "$tmpf"
+  printf '  "last_update": "%s",\n' "$(date -Iseconds)" >> "$tmpf"
+  printf '  "stacks": {\n' >> "$tmpf"
+  
+  local first=1
+  while IFS= read -r stack; do
+    local version=$(get_stack_version "$stack")
+    local installed="false"
+    if is_stack_installed "$stack"; then
+      installed="true"
+    fi
+    
+    if [[ $first -eq 0 ]]; then
+      printf ',\n' >> "$tmpf"
+    fi
+    printf '    "%s": {"version": "%s", "installed": %s}' "$stack" "$version" "$installed" >> "$tmpf"
+    first=0
+  done < <(list_stacks)
+  
+  printf '\n  }\n}\n' >> "$tmpf"
+  
+  # Écrire le fichier JSON
+  if ! cp "$tmpf" "$json_file" 2>/dev/null; then
+    sudo tee "$json_file" >/dev/null <"$tmpf" || true
+  fi
+  
+  # Ownership du fichier
+  if ! chown "$owner:$owner" "$json_file" 2>/dev/null; then
+    sudo chown "$owner:$owner" "$json_file" 2>/dev/null || true
+  fi
+  
+  return 0
+}
 
 list_stacks() {
   find "$STACKS_DIR" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort
@@ -35,9 +142,13 @@ install_stack() {
   local stack="$1"
   local script="$STACKS_DIR/$stack/install.sh"
   if [[ -x "$script" ]]; then
-    bash "$script"
+    bash "$script" </dev/tty
+    local exit_code=$?
+    update_stacks_json
+    return $exit_code
   else
     printf "$INSTALL_SCRIPT_NOT_FOUND\n" "$stack"
+    return 1
   fi
 }
 
@@ -46,24 +157,31 @@ uninstall_stack() {
   local script="$STACKS_DIR/$stack/uninstall.sh"
   if [[ -x "$script" ]]; then
     bash "$script"
+    update_stacks_json
   else
     printf "$UNINSTALL_SCRIPT_NOT_FOUND\n" "$stack"
   fi
 }
 
 menu_install_specific() {
-  echo "=== Installer une stack spécifique ==="
-  echo "Stacks disponibles :"
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "              ${C_GOOD}${INSTALL_MENU_SPECIFIC_TITLE}${C_RESET}                       "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_STACKS_AVAILABLE}${C_RESET}"
   local i=1
   local stacks=()
   while IFS= read -r s; do
     stacks+=("$s")
-    echo "  $i) $s"
+    echo -e "  $i) ${C_HIGHLIGHT}$s${C_RESET}"
     ((i++))
   done < <(list_stacks)
 
-  echo "  0) Retour"
-  read -rp "Choix: " choice
+  echo -e "  0) ${C_RED}${INSTALL_RETURN}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+  read -r choice
 
   if [[ "$choice" == "0" ]]; then
     return
@@ -75,23 +193,29 @@ menu_install_specific() {
   if [[ -n "$sel" ]]; then
     install_stack "$sel"
   else
-    echo "[!] Choix invalide."
+    echo "${INSTALL_INVALID_CHOICE}"
   fi
 }
 
 menu_uninstall() {
-  echo "=== Désinstaller une stack ==="
-  echo "Stacks disponibles :"
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "                  ${C_RED}${INSTALL_MENU_8}${C_RESET}                          "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_STACKS_AVAILABLE}${C_RESET}"
   local i=1
   local stacks=()
   while IFS= read -r s; do
     stacks+=("$s")
-    echo "  $i) $s"
+    echo -e "  $i) ${C_HIGHLIGHT}$s${C_RESET}"
     ((i++))
   done < <(list_stacks)
 
-  echo "  0) Retour"
-  read -rp "Choix: " choice
+  echo -e "  0) ${C_GOOD}${INSTALL_RETURN}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+  read -r choice
 
   if [[ "$choice" == "0" ]]; then
     return
@@ -103,55 +227,201 @@ menu_uninstall() {
   if [[ -n "$sel" ]]; then
     uninstall_stack "$sel"
   else
-    echo "[!] Choix invalide."
+    echo "${INSTALL_INVALID_CHOICE}"
   fi
+}
+
+uninstall_all() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "          ${C_RED}${INSTALL_UNINSTALL_ALL_TITLE}${C_RESET}                    "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_YELLOW}${INSTALL_UNINSTALL_ALL_WARNING}${C_RESET}"
+  echo ""
+  echo -ne "${C_RED}${INSTALL_UNINSTALL_ALL_CONFIRM} ${C_RESET}"
+  read -r confirm
+  
+  if [[ "$confirm" =~ ^[oOyY]$ ]]; then
+    while IFS= read -r s; do
+      echo -e "${C_INFO}${INSTALL_UNINSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      uninstall_stack "$s"
+    done < <(list_stacks)
+    echo ""
+    echo -e "${C_GOOD}${INSTALL_UNINSTALL_ALL_COMPLETE}${C_RESET}"
+  else
+    echo -e "${C_INFO}${INSTALL_CANCELLED}${C_RESET}"
+  fi
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
+}
+
+install_all_except_llm() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "      ${C_GOOD}${INSTALL_INSTALL_EXCEPT_LLM_TITLE}${C_RESET}                  "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  while IFS= read -r s; do
+    if [[ "$s" != "llm" ]]; then
+      echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      install_stack "$s"
+    else
+      echo -e "${C_YELLOW}${INSTALL_LLM_IGNORED}${C_RESET}"
+    fi
+  done < <(list_stacks)
+  echo ""
+  echo -e "${C_GOOD}${INSTALL_ALL_EXCEPT_LLM_COMPLETE}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
 }
 
 install_all() {
-  echo "=== Installation de TOUTES les stacks ==="
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "          ${C_GOOD}${INSTALL_INSTALL_ALL_TITLE}${C_RESET}                       "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
   while IFS= read -r s; do
-    echo "[Balor] Installation stack: $s"
+    echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
     install_stack "$s"
   done < <(list_stacks)
-  echo "[Balor] Installation complète terminée."
+  echo ""
+  echo -e "${C_GOOD}${INSTALL_ALL_COMPLETE}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
+}
+
+# Vérifie si une stack semble installée (heuristique basée sur /opt/balorsh/data/)
+is_stack_installed() {
+  local stack="$1"
+  # Vérifier si le dossier de données existe
+  if [[ -d "$BALOR_OPT_ROOT/data/$stack" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+update_existing_stacks() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "         ${C_INFO}${INSTALL_MENU_3}${C_RESET}                     "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  local updated_count=0
+  local skipped_count=0
+  while IFS= read -r s; do
+    if is_stack_installed "$s"; then
+      local current_version=$(get_installed_stack_version "$s")
+      local available_version=$(get_stack_version "$s")
+      
+      if [[ "$current_version" != "$available_version" ]]; then
+        echo -e "${C_INFO}${INSTALL_UPDATE_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET} ${C_SHADOW}($current_version → $available_version)${C_RESET}"
+        if install_stack "$s"; then
+          updated_count=$((updated_count + 1))
+        else
+          printf "${C_RED}${INSTALL_UPDATE_FAILED}${C_RESET}\n" "$s"
+        fi
+      else
+        printf "${C_SHADOW}${INSTALL_ALREADY_UP_TO_DATE}${C_RESET}\n" "$s" "$current_version"
+        skipped_count=$((skipped_count + 1))
+      fi
+    else
+      printf "${C_SHADOW}${INSTALL_NOT_INSTALLED_IGNORED}${C_RESET}\n" "$s"
+    fi
+  done < <(list_stacks)
+  
+  echo ""
+  if [[ $updated_count -gt 0 ]]; then
+    printf "${C_GOOD}${INSTALL_UPDATED_COUNT}${C_RESET}\n" "$updated_count"
+  fi
+  if [[ $skipped_count -gt 0 ]]; then
+    printf "${C_INFO}${INSTALL_ALREADY_UP_TO_DATE_COUNT}${C_RESET}\n" "$skipped_count"
+  fi
+  if [[ $updated_count -eq 0 && $skipped_count -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_STACKS_TO_UPDATE}${C_RESET}"
+  fi
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
+}
+
+install_missing_stacks() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "          ${C_GOOD}${INSTALL_MENU_4}${C_RESET}                        "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  local installed_count=0
+  while IFS= read -r s; do
+    if ! is_stack_installed "$s"; then
+      echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      install_stack "$s"
+      installed_count=$((installed_count + 1))
+    else
+      printf "${C_SHADOW}${INSTALL_ALREADY_INSTALLED}${C_RESET}\n" "$s"
+    fi
+  done < <(list_stacks)
+  
+  echo ""
+  if [[ $installed_count -gt 0 ]]; then
+    printf "${C_GOOD}${INSTALL_INSTALLED_COUNT}${C_RESET}\n" "$installed_count"
+  else
+    echo -e "${C_INFO}${INSTALL_ALL_ALREADY_INSTALLED}${C_RESET}"
+  fi
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
 }
 
 update_all() {
-  echo "=== Mise à jour système + AUR ==="
-  echo "[Balor] pacman -Syu..."
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "              ${C_INFO}${INSTALL_UPDATE_SYSTEM_TITLE}${C_RESET}                           "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_INFO}${INSTALL_PACMAN_SYU}${C_RESET}"
   sudo pacman -Syu --noconfirm
 
   if have_paru; then
-    echo "[Balor] Mise à jour AUR via paru..."
+    echo -e "${C_INFO}${INSTALL_PARU_UPDATE}${C_RESET}"
     paru -Syu --noconfirm
   else
-    echo "[Balor] paru non présent, pas de mise à jour AUR."
+    echo -e "${C_YELLOW}${INSTALL_PARU_NOT_PRESENT}${C_RESET}"
   fi
 
-  echo
-  echo "[NOTE] Si tu modifies packages.txt, relance l'install de la stack concernée."
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_NOTE_PACKAGES}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+  read -r
 }
 
 install_balorsh_wrapper() {
-  echo "=== Installation / Mise à jour du wrapper balorsh ==="
+  echo "${INSTALL_WRAPPER_TITLE}"
 
   if [[ ! -f "$BALOR_WRAPPER_SRC" ]]; then
-    echo "[!] Wrapper introuvable: $BALOR_WRAPPER_SRC"
-    echo "    (attendu: un fichier 'balorsh' à la racine du projet)"
+    printf "${INSTALL_WRAPPER_NOT_FOUND}\n" "$BALOR_WRAPPER_SRC"
+    echo "${INSTALL_WRAPPER_EXPECTED}"
     return 1
   fi
 
   # Vérifier et installer rsync si absent
   if ! command -v rsync >/dev/null 2>&1; then
-    echo "[Balor] rsync n'est pas installé. Installation en cours..."
+    echo "${INSTALL_RSYNC_NOT_INSTALLED}"
     sudo pacman -S --needed --noconfirm rsync || {
-      echo "[!] Échec de l'installation de rsync."
+      echo "${INSTALL_RSYNC_FAILED}"
       return 1
     }
-    echo "[Balor] rsync installé avec succès."
+    echo "${INSTALL_RSYNC_INSTALLED}"
   fi
 
-  echo "[Balor] Préparation: $BALOR_OPT_ROOT"
+  printf "${INSTALL_WRAPPER_PREPARING}\n" "$BALOR_OPT_ROOT"
   sudo mkdir -p "$BALOR_OPT_ROOT"
 
   # S'assure que le répertoire de données existe sous /opt/balorsh
@@ -170,7 +440,7 @@ install_balorsh_wrapper() {
     sudo chown "$owner:$owner" "$BALORSH_DATA_DIR" || true
   fi
 
-  echo "[Balor] Synchronisation du framework (lib/, stacks/, VERSION, banner, wrapper)..."
+  echo "${INSTALL_WRAPPER_SYNCING}"
 
   # Fichiers racine indispensables
   sudo rsync -a --delete \
@@ -191,53 +461,53 @@ install_balorsh_wrapper() {
   
   # Copie de la documentation
   if [[ -d "$BALOR_ROOT/doc" ]]; then
-    echo "[Balor] Copie de la documentation (doc/)..."
+    echo "${INSTALL_WRAPPER_DOC}"
     sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/doc/" "$BALOR_OPT_ROOT/doc/"
   fi
 
   # S'assurer que tous les scripts dans /opt/balorsh/stacks ont les bonnes permissions
-  echo "[Balor] Application des permissions exécutables aux scripts..."
+  echo "${INSTALL_WRAPPER_PERMISSIONS}"
   sudo find "$BALOR_OPT_ROOT/stacks" -type f -name "*.sh" -exec chmod +x {} \;
   
-  echo "[Balor] Installation du binaire: $BALOR_BIN_PATH"
+  printf "${INSTALL_WRAPPER_INSTALLING}\n" "$BALOR_BIN_PATH"
   sudo install -m 0755 "$BALOR_OPT_ROOT/balorsh" "$BALOR_BIN_PATH"
 
-  echo "[Balor] OK. Version:"
+  echo "${INSTALL_WRAPPER_OK}"
   "$BALOR_BIN_PATH" --version || true
 
-  echo "[Balor] Quick verification:"
+  echo "${INSTALL_WRAPPER_VERIFY}"
   if [[ -d "$BALOR_OPT_ROOT/stacks" ]]; then
-    echo "  Stacks copiées:"
+    echo "${INSTALL_WRAPPER_STACKS_COPIED}"
     ls -1 "$BALOR_OPT_ROOT/stacks" | head -n 20 || true
   else
-    echo "  [!] Dossier stacks introuvable dans $BALOR_OPT_ROOT"
+    printf "${INSTALL_WRAPPER_STACKS_NOT_FOUND}\n" "$BALOR_OPT_ROOT"
   fi
   
-  echo "  Lib i18n:"
+  echo "${INSTALL_WRAPPER_LIB_I18N}"
   if [[ -f "$BALOR_OPT_ROOT/lib/i18n.sh" ]]; then
-    echo "    ✓ i18n.sh présent"
+    echo "${INSTALL_WRAPPER_I18N_PRESENT}"
   else
-    echo "    ✗ i18n.sh manquant"
+    echo "${INSTALL_WRAPPER_I18N_MISSING}"
   fi
   
   if [[ -d "$BALOR_OPT_ROOT/lib/lang" ]]; then
-    echo "    ✓ lib/lang/ présent"
+    echo "${INSTALL_WRAPPER_LANG_PRESENT}"
     ls -1 "$BALOR_OPT_ROOT/lib/lang" | sed 's/^/      - /' || true
   else
-    echo "    ✗ lib/lang/ manquant"
+    echo "${INSTALL_WRAPPER_LANG_MISSING}"
   fi
 }
 
 uninstall_balorsh_wrapper() {
-  echo "=== Désinstallation du wrapper balorsh ==="
+  echo "${INSTALL_WRAPPER_UNINSTALL_TITLE}"
 
-  echo "[Balor] Suppression du binaire: $BALOR_BIN_PATH"
+  printf "${INSTALL_WRAPPER_REMOVING_BIN}\n" "$BALOR_BIN_PATH"
   sudo rm -f "$BALOR_BIN_PATH"
 
-  echo "[Balor] Suppression du framework: $BALOR_OPT_ROOT"
+  printf "${INSTALL_WRAPPER_REMOVING_FRAMEWORK}\n" "$BALOR_OPT_ROOT"
   sudo rm -rf "$BALOR_OPT_ROOT"
 
-  echo "[Balor] Wrapper supprimé."
+  echo "${INSTALL_WRAPPER_REMOVED}"
 }
 
 # --------- START: Check installed tools ---------
@@ -406,7 +676,7 @@ is_git_repo_installed() {
 
 # Fonction principale : construit la liste "attendue" et vérifie l'état
 check_installed_tools() {
-  echo "=== Checking tools listed in the stacks ==="
+  echo "${INSTALL_CHECK_TITLE}"
 
   # désactive 'errexit' dans cette fonction pour permettre de vérifier
   # plusieurs paquets sans interrompre la routine
@@ -486,46 +756,46 @@ check_installed_tools() {
   done
 
   echo
-  echo "Résumé :"
-  echo "  Outils attendus : $total_expected"
-  echo "  Installés       : $installed_count"
-  echo "  Manquants       : $((total_expected - installed_count))"
+  echo "${INSTALL_CHECK_SUMMARY}"
+  echo "  ${INSTALL_CHECK_EXPECTED} $total_expected"
+  echo "  ${INSTALL_CHECK_INSTALLED} $installed_count"
+  echo "  ${INSTALL_CHECK_MISSING} $((total_expected - installed_count))"
   echo
 
-  echo "Détails par type :"
-  echo "  pacman - attendus: $(( ${#pacman_found[@]} + ${#pacman_missing[@]} ))  installés: ${#pacman_found[@]}  manquants: ${#pacman_missing[@]}"
+  echo "${INSTALL_CHECK_DETAILS}"
+  echo "  ${INSTALL_CHECK_PACMAN} $(( ${#pacman_found[@]} + ${#pacman_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#pacman_found[@]}${INSTALL_CHECK_MISSINGS} ${#pacman_missing[@]}"
   if (( ${#pacman_found[@]} )); then
-    echo "    Installés: ${pacman_found[*]}"
+    echo "${INSTALL_CHECK_INST_LIST} ${pacman_found[*]}"
   fi
   if (( ${#pacman_missing[@]} )); then
-    echo "    Manquants: ${pacman_missing[*]}"
+    echo "${INSTALL_CHECK_MISS_LIST} ${pacman_missing[*]}"
   fi
 
-  echo "  aur    - attendus: $(( ${#aur_found[@]} + ${#aur_missing[@]} ))  installés: ${#aur_found[@]}  manquants: ${#aur_missing[@]}"
+  echo "  ${INSTALL_CHECK_AUR} $(( ${#aur_found[@]} + ${#aur_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#aur_found[@]}${INSTALL_CHECK_MISSINGS} ${#aur_missing[@]}"
   if (( ${#aur_found[@]} )); then
-    echo "    Installés: ${aur_found[*]}"
+    echo "${INSTALL_CHECK_INST_LIST} ${aur_found[*]}"
   fi
   if (( ${#aur_missing[@]} )); then
-    echo "    Manquants: ${aur_missing[*]}"
+    echo "${INSTALL_CHECK_MISS_LIST} ${aur_missing[*]}"
   fi
 
-  echo "  git    - attendus: $(( ${#git_found[@]} + ${#git_missing[@]} ))  installés: ${#git_found[@]}  manquants: ${#git_missing[@]}"
+  echo "  ${INSTALL_CHECK_GIT} $(( ${#git_found[@]} + ${#git_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#git_found[@]}${INSTALL_CHECK_MISSINGS} ${#git_missing[@]}"
   if (( ${#git_found[@]} )); then
-    echo "    Installés: ${git_found[*]}"
+    echo "${INSTALL_CHECK_INST_LIST} ${git_found[*]}"
   fi
   if (( ${#git_missing[@]} )); then
     for gm in "${git_missing[@]}"; do
       name="${gm%%:*}"
       url="${gm#*:}"
-      echo "    Manquant: ${name} (${url})"
+      echo "${INSTALL_CHECK_MISS_ITEM} ${name} (${url})"
     done
   fi
 
   echo
-  echo "Conseils :"
-  echo "  - Pour installer les paquets manquants (officiels) : sudo pacman -S <paquet>"
-  echo "  - Pour les paquets AUR listés explicitement dans scripts : installe via paru ou manuellement"
-  echo "  - Pour les repos git manquants : vérifie le script d'installation de la stack concernée (stacks/*/install.sh)"
+  echo "${INSTALL_CHECK_TIPS}"
+  echo "${INSTALL_CHECK_TIP1}"
+  echo "${INSTALL_CHECK_TIP2}"
+  echo "${INSTALL_CHECK_TIP3}"
   echo
 
   # restaurer le comportement 'errexit' avant de retourner
@@ -547,28 +817,69 @@ ensure_stack_scripts_executable() {
 
 main_menu() {
   while true; do
-    echo
-    echo "==== Balor ${VERSION} - Hacker RPG IRL ===="
-    echo "1) Installer TOUTES les stacks"
-    echo "2) Installer une stack"
-    echo "3) Désinstaller une stack"
-    echo "4) Mettre à jour (système + AUR)"
-    echo "5) Installer/Mettre à jour le wrapper balorsh"
-    echo "6) Désinstaller le wrapper balorsh"
-    echo "7) Vérifier l'état des outils listés (paquets/git)"
-    echo "8) Quitter"
-    read -rp "Choix: " choice
+    clear
+    # Affichage du banner en violet
+    echo -e "${C_ACCENT2}"
+    if [[ -f "$BANNER_FILE" ]]; then
+      cat "$BANNER_FILE"
+    else
+      echo "${INSTALL_BANNER_FALLBACK}"
+    fi
+    echo -e "${C_RESET}"
+    echo ""
+    
+    echo -e "${C_ACCENT2}╔═══════════════════════════════════════════════════════════════════╗${C_RESET}"
+    printf "                ${C_GOOD}${INSTALL_MENU_TITLE}${C_RESET}                  \n" "${VERSION}"
+    echo -e "${C_ACCENT2}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${INSTALL_SECTION_INSTALL}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${INSTALL_MENU_1}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${INSTALL_MENU_2}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}3)${C_RESET} ${C_INFO}${INSTALL_MENU_3}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}4)${C_RESET} ${C_INFO}${INSTALL_MENU_4}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${INSTALL_MENU_5}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${INSTALL_MENU_6}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${INSTALL_SECTION_UNINSTALL}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${INSTALL_MENU_7}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${INSTALL_MENU_8}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${INSTALL_MENU_9}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
+    echo ""
+    echo -e "   ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
+    echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+    echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+    read -r choice
 
     case "$choice" in
       1) install_all ;;
-      2) menu_install_specific ;;
-      3) menu_uninstall ;;
-      4) update_all ;;
-      5) install_balorsh_wrapper ;;
-      6) uninstall_balorsh_wrapper ;;
-      7) check_installed_tools ;;
-      8) echo "[Idenroad] Bye."; exit 0 ;;
-      *) echo "[!] Choix invalide." ;;
+      2) install_all_except_llm ;;
+      3) update_existing_stacks ;;
+      4) install_missing_stacks ;;
+      5) menu_install_specific ;;
+      6) install_balorsh_wrapper ;;
+      7) uninstall_balorsh_wrapper ;;
+      8) menu_uninstall ;;
+      9) uninstall_all ;;
+      10) update_all ;;
+      11) 
+        check_installed_tools
+        echo ""
+        echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+        read -r
+        ;;
+      0) 
+        clear
+        echo -e "${C_GOOD}[Idenroad] ${INSTALL_BYE}${C_RESET}"
+        exit 0
+        ;;
+      *) 
+        echo -e "${C_RED}[!] ${INSTALL_INVALID_CHOICE}${C_RESET}"
+        sleep 1
+        ;;
     esac
   done
 }

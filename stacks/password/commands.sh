@@ -56,9 +56,9 @@ password_identify_hash() {
       echo ""
       echo -e "${C_HIGHLIGHT}${NETSCAN_SCANNING}${C_RESET}"
       {
-        echo "=== Identification de hash - hashid ==="
-        echo "Date: $(date)"
-        echo "Hash: $hash"
+        echo "${PASSWORD_HEADER_HASH_ID}"
+        echo "${PASSWORD_LABEL_DATE} $(date)"
+        echo "${PASSWORD_LABEL_HASH} $hash"
         echo ""
         hashid "$hash"
       } | tee "$outfile"
@@ -73,9 +73,9 @@ password_identify_hash() {
       echo ""
       echo -e "${C_HIGHLIGHT}${NETSCAN_SCANNING}${C_RESET}"
       {
-        echo "=== Identification de hashes - hashid ==="
-        echo "Date: $(date)"
-        echo "Fichier source: $hashfile"
+        echo "${PASSWORD_HEADER_HASHES_ID}"
+        echo "${PASSWORD_LABEL_DATE} $(date)"
+        echo "${PASSWORD_LABEL_SOURCE_FILE} $hashfile"
         echo ""
         hashid -m "$hashfile"
       } | tee "$outfile"
@@ -96,98 +96,106 @@ password_identify_hash() {
 
 # Lister les wordlists disponibles
 password_list_wordlists() {
-  echo -e "${C_HIGHLIGHT}Wordlists disponibles:${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_WORDLIST_EXPLORER}${C_RESET}"
   echo ""
   
   if [[ ! -d "$WORDLISTS_DIR" ]]; then
-    echo -e "${C_RED}Répertoire $WORDLISTS_DIR non trouvé${C_RESET}"
-    echo -e "${C_INFO}Installez le paquet 'wordlists' depuis l'AUR${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_WORDLISTS_DIR_NOT_FOUND//%s/$WORDLISTS_DIR}${C_RESET}"
+    echo -e "${C_INFO}${PASSWORD_INSTALL_WORDLISTS_AUR}${C_RESET}"
     return 1
   fi
+
+  local current_dir="$WORDLISTS_DIR"
   
-  local outdir="$BALORSH_DATA_DIR/password/inventory"
-  mkdir -p "$outdir"
-  local outfile="$outdir/wordlists_$(date +%Y%m%d_%H%M%S).txt"
-  
-  echo -e "${C_ACCENT1}Répertoire: $WORDLISTS_DIR${C_RESET}"
-  echo ""
-  
-  {
-    echo "=== Inventaire des Wordlists ==="
-    echo "Date: $(date)"
-    echo "Répertoire: $WORDLISTS_DIR"
+  while true; do
+    clear
+    echo -e "${C_HIGHLIGHT}${PASSWORD_WORDLIST_EXPLORER}${C_RESET}"
     echo ""
-    echo "=== Contenu ==="
-    
-    # Affiche la structure avec taille des fichiers
-    du -sh "$WORDLISTS_DIR"/* 2>/dev/null | while read -r size path; do
-      name=$(basename "$path")
-      if [[ -d "$path" ]]; then
-        echo "[DIR]  $size\t$name/"
-      else
-        echo "[FILE] $size\t$name"
-      fi
-    done
-    
+    echo -e "${C_ACCENT1}${PASSWORD_CURRENT_PATH} ${current_dir}${C_RESET}"
     echo ""
-    echo "=== Fichiers populaires ==="
     
-    # Rockyou
-    if [[ -f "$WORDLISTS_DIR/seclists/Passwords/Leaked-Databases/rockyou.txt" ]]; then
-      local size=$(du -sh "$WORDLISTS_DIR/seclists/Passwords/Leaked-Databases/rockyou.txt" 2>/dev/null | awk '{print $1}')
-      echo "✓ rockyou.txt ($size)"
-    fi
+    # Lister les sous-répertoires avec stats
+    echo -e "${C_GOOD}=== ${PASSWORD_SUBDIRS} ===${C_RESET}"
+    local index=1
+    declare -A dir_map
     
-    # Common passwords
-    if [[ -d "$WORDLISTS_DIR/seclists/Passwords" ]]; then
-      echo "✓ SecLists Passwords collection"
-    fi
+    while IFS= read -r dir; do
+      local dirname=$(basename "$dir")
+      local filecount=$(find "$dir" -type f 2>/dev/null | wc -l)
+      local dirsize=$(du -sh "$dir" 2>/dev/null | cut -f1)
+      echo -e "${C_ACCENT1}  $index) 📁 $dirname${C_RESET} - ${C_SHADOW}$filecount fichiers, $dirsize${C_RESET}"
+      dir_map[$index]="$dir"
+      ((index++))
+    done < <(find "$current_dir" -maxdepth 1 -type d ! -path "$current_dir" 2>/dev/null | sort)
     
+    # Lister les fichiers
     echo ""
-    echo "=== Liste détaillée des fichiers .txt ==="
-    find "$WORDLISTS_DIR" -type f -name "*.txt" 2>/dev/null | head -n 50
+    echo -e "${C_INFO}=== ${PASSWORD_FILES_HERE} ===${C_RESET}"
+    local file_index=$index
+    declare -A file_map
     
-  } | tee "$outfile"
-  
-  # Affichage coloré pour le terminal
-  echo ""
-  du -sh "$WORDLISTS_DIR"/* 2>/dev/null | while read -r size path; do
-    name=$(basename "$path")
-    if [[ -d "$path" ]]; then
-      echo -e "  ${C_GOOD}[DIR]${C_RESET}  $size\t$name/"
-    else
-      echo -e "  ${C_INFO}[FILE]${C_RESET} $size\t$name"
+    while IFS= read -r file; do
+      local filename=$(basename "$file")
+      local filesize=$(du -h "$file" 2>/dev/null | cut -f1)
+      local linecount=$(wc -l < "$file" 2>/dev/null)
+      echo -e "${C_INFO}  $file_index) 📄 $filename${C_RESET} - ${C_SHADOW}$filesize, $linecount lignes${C_RESET}"
+      file_map[$file_index]="$file"
+      ((file_index++))
+    done < <(find "$current_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort | head -30)
+    
+    # Menu de navigation
+    echo ""
+    echo -e "${C_YELLOW}=== ${PASSWORD_NAVIGATION} ===${C_RESET}"
+    if [[ "$current_dir" != "$WORDLISTS_DIR" ]]; then
+      echo -e "  ${C_YELLOW}0) ⬆️  ${PASSWORD_GO_UP}${C_RESET}"
     fi
+    echo -e "  ${C_YELLOW}r) 🏠 ${PASSWORD_RETURN_ROOT}${C_RESET}"
+    echo -e "  ${C_YELLOW}q) ❌ ${PASSWORD_QUIT_EXPLORER}${C_RESET}"
+    echo ""
+    echo -ne "${C_ACCENT1}${PASSWORD_CHOICE_PROMPT} ${C_RESET}"
+    read -r choice
+    
+    case "$choice" in
+      q)
+        break
+        ;;
+      0)
+        if [[ "$current_dir" != "$WORDLISTS_DIR" ]]; then
+          current_dir=$(dirname "$current_dir")
+        fi
+        ;;
+      r)
+        current_dir="$WORDLISTS_DIR"
+        ;;
+      *)
+        if [[ -n "${dir_map[$choice]}" ]]; then
+          current_dir="${dir_map[$choice]}"
+        elif [[ -n "${file_map[$choice]}" ]]; then
+          echo ""
+          echo -e "${C_INFO}${PASSWORD_FILE_SELECTED} ${file_map[$choice]}${C_RESET}"
+          echo ""
+          read -p "Appuyez sur Entrée pour continuer..." 
+        else
+          echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
+          sleep 1
+        fi
+        ;;
+    esac
   done
-  
-  echo ""
-  echo -e "${C_HIGHLIGHT}Fichiers populaires:${C_RESET}"
-  
-  if [[ -f "$WORDLISTS_DIR/seclists/Passwords/Leaked-Databases/rockyou.txt" ]]; then
-    local size=$(du -sh "$WORDLISTS_DIR/seclists/Passwords/Leaked-Databases/rockyou.txt" 2>/dev/null | awk '{print $1}')
-    echo -e "  ✓ rockyou.txt ($size)"
-  fi
-  
-  if [[ -d "$WORDLISTS_DIR/seclists/Passwords" ]]; then
-    echo -e "  ✓ SecLists Passwords collection"
-  fi
-  
-  echo ""
-  echo -e "${C_GOOD}Inventaire sauvegardé: $outfile${C_RESET}"
 }
 
 # Sélectionner une wordlist
 password_select_wordlist() {
   local selected=""
-  
-  echo -e "${C_HIGHLIGHT}Sélection de wordlist${C_RESET}"
-  echo ""
-  echo "Options communes:"
-  echo "  1) rockyou.txt (14M - le plus utilisé)"
-  echo "  2) Parcourir $WORDLISTS_DIR"
-  echo "  3) Fichier personnalisé"
-  echo ""
-  echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}"
+
+  echo -e "${C_HIGHLIGHT}${PASSWORD_WORDLIST_SELECTION}${C_RESET}" >&2
+  echo "" >&2
+  echo "${PASSWORD_OPTIONS_COMMON}" >&2
+  printf "  1) ${PASSWORD_OPT_ROCKYOU}\n" >&2
+  printf "  2) ${PASSWORD_OPT_BROWSE}\n" "$WORDLISTS_DIR" >&2
+  echo "  3) ${PASSWORD_OPT_CUSTOM_FILE}" >&2
+  echo "" >&2
+  echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}" >&2
   read -r choice
   choice="${choice:-1}"
   
@@ -195,31 +203,103 @@ password_select_wordlist() {
     1)
       selected="$WORDLISTS_DIR/seclists/Passwords/Leaked-Databases/rockyou.txt"
       if [[ ! -f "$selected" ]]; then
-        echo -e "${C_RED}rockyou.txt non trouvé${C_RESET}"
-        echo -e "${C_INFO}Installez le paquet 'wordlists' depuis l'AUR${C_RESET}"
+        echo -e "${C_RED}${PASSWORD_ROCKYOU_NOT_FOUND}${C_RESET}" >&2
+        echo -e "${C_INFO}${PASSWORD_INSTALL_WORDLISTS}${C_RESET}" >&2
         return 1
       fi
       ;;
     2)
-      echo -e "${C_INFO}Listage des wordlists...${C_RESET}"
-      echo ""
-      find "$WORDLISTS_DIR" -type f -name "*.txt" 2>/dev/null | head -n 20
-      echo ""
-      echo -ne "${C_ACCENT1}Chemin complet de la wordlist: ${C_RESET}"
-      read -r selected
+      # Explorateur de répertoires de wordlists
+      echo -e "${C_INFO}${PASSWORD_WORDLIST_EXPLORER}${C_RESET}" >&2
+      echo "" >&2
+      
+      # Fonction pour afficher un répertoire avec ses stats
+      local browse_dir="$WORDLISTS_DIR"
+      local indent=""
+      
+      while true; do
+        echo -e "${C_HIGHLIGHT}${PASSWORD_CURRENT_PATH} ${browse_dir/${WORDLISTS_DIR}\//}${C_RESET}" >&2
+        echo "" >&2
+        
+        # Lister les sous-répertoires avec nombre de fichiers
+        local dir_index=1
+        declare -A dir_map
+        
+        # Répertoires directs
+        while IFS= read -r dir; do
+          local dirname=$(basename "$dir")
+          local filecount=$(find "$dir" -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | wc -l)
+          echo -e "${C_ACCENT1}  $dir_index) 📁 $dirname${C_RESET} ${C_SHADOW}($filecount fichiers)${C_RESET}" >&2
+          dir_map[$dir_index]="$dir"
+          ((dir_index++))
+        done < <(find "$browse_dir" -maxdepth 1 -type d ! -path "$browse_dir" 2>/dev/null | sort)
+        
+        # Fichiers dans le répertoire courant
+        local file_index=$dir_index
+        declare -A file_map
+        echo "" >&2
+        echo -e "${C_INFO}${PASSWORD_FILES_HERE}${C_RESET}" >&2
+        while IFS= read -r file; do
+          local filename=$(basename "$file")
+          local filesize=$(du -h "$file" 2>/dev/null | cut -f1)
+          echo -e "${C_GOOD}  $file_index) 📄 $filename${C_RESET} ${C_SHADOW}($filesize)${C_RESET}" >&2
+          file_map[$file_index]="$file"
+          ((file_index++))
+        done < <(find "$browse_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort)
+        
+        echo "" >&2
+        if [[ "$browse_dir" != "$WORDLISTS_DIR" ]]; then
+          echo -e "  ${C_YELLOW}0) ${PASSWORD_GO_UP}${C_RESET}" >&2
+        fi
+        echo -e "  ${C_YELLOW}c) ${PASSWORD_WORDLIST_CUSTOM_PATH}${C_RESET}" >&2
+        echo -e "  ${C_YELLOW}q) ${PASSWORD_QUIT_EXPLORER}${C_RESET}" >&2
+        echo "" >&2
+        echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION}: ${C_RESET}" >&2
+        read -r browse_choice
+        
+        case "$browse_choice" in
+          q)
+            return 1
+            ;;
+          0)
+            browse_dir=$(dirname "$browse_dir")
+            ;;
+          c)
+            echo -ne "${C_ACCENT1}${PASSWORD_OPT_CUSTOM_FILE} ${C_RESET}" >&2
+            read -r selected
+            break
+            ;;
+          *)
+            if [[ -n "${dir_map[$browse_choice]:-}" ]]; then
+              browse_dir="${dir_map[$browse_choice]}"
+            elif [[ -n "${file_map[$browse_choice]:-}" ]]; then
+              selected="${file_map[$browse_choice]}"
+              break
+            else
+              echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}" >&2
+            fi
+            ;;
+        esac
+      done
       ;;
     3)
-      echo -ne "${C_ACCENT1}Chemin complet de la wordlist: ${C_RESET}"
+      echo -ne "${C_ACCENT1}${PASSWORD_OPT_CUSTOM_FILE} ${C_RESET}" >&2
       read -r selected
       ;;
     *)
-      echo -e "${C_RED}Choix invalide${C_RESET}"
-      return 1
+      # Si ce n'est pas 1, 2 ou 3, considérer que c'est un chemin direct
+      selected="$choice"
       ;;
   esac
   
+  # Validation finale du fichier
+  if [[ -z "$selected" ]]; then
+    echo -e "${C_RED}${PASSWORD_NO_FILE_SELECTED}${C_RESET}" >&2
+    return 1
+  fi
+  
   if [[ ! -f "$selected" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $selected${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND_PREFIX} $selected${C_RESET}" >&2
     return 1
   fi
   
@@ -232,37 +312,36 @@ password_select_wordlist() {
 
 # Crack avec hashcat
 password_hashcat_crack() {
-  echo -e "${C_HIGHLIGHT}Cracking avec Hashcat${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_TITLE}${C_RESET}"
   echo ""
-  
+
   # Sélection du fichier de hash
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND_PREFIX} $hashfile${C_RESET}"
     return 1
   fi
   
   # Sélection du type de hash
   echo ""
-  echo -e "${C_HIGHLIGHT}Types de hash courants:${C_RESET}"
-  echo "  0     - MD5"
-  echo "  100   - SHA1"
-  echo "  1000  - NTLM"
-  echo "  1400  - SHA256"
-  echo "  1700  - SHA512"
-  echo "  1800  - sha512crypt (Linux)"
-  echo "  3200  - bcrypt"
-  echo "  5600  - NetNTLMv2"
-  echo "  22000 - WPA/WPA2 (PMKID/EAPOL)"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_MODES_TITLE}${C_RESET}"
+  echo "  ${PASSWORD_MODE_MD5}"
+  echo "  ${PASSWORD_MODE_SHA1}"
+  echo "  ${PASSWORD_MODE_NTLM}"
+  echo "  ${PASSWORD_MODE_SHA256}"
+  echo "  ${PASSWORD_MODE_SHA512}"
+  echo "  ${PASSWORD_MODE_BCRYPT}"
+  echo "  ${PASSWORD_MODE_NETNTLM}"
+  echo "  ${PASSWORD_MODE_WPA}"
   echo ""
-  echo -e "${C_INFO}Pour la liste complète: hashcat --help | grep 'Hash modes'${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_HASHCAT_HELP}${C_RESET}"
   echo ""
-  echo -ne "${C_ACCENT1}Mode hashcat: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_MODE} ${C_RESET}"
   read -r mode
-  
+
   if [[ -z "$mode" ]]; then
-    echo -e "${C_RED}Mode requis${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_MODE_REQUIRED}${C_RESET}"
     return 1
   fi
   
@@ -272,10 +351,10 @@ password_hashcat_crack() {
   wordlist=$(password_select_wordlist) || return 1
   
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement de hashcat...${C_RESET}"
-  echo -e "${C_INFO}Mode: $mode${C_RESET}"
-  echo -e "${C_INFO}Hashes: $hashfile${C_RESET}"
-  echo -e "${C_INFO}Wordlist: $wordlist${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_STARTING}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_LABEL_MODE} $mode${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_LABEL_HASHES} $hashfile${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_LABEL_WORDLIST} $wordlist${C_RESET}"
   echo ""
   
   # Préparation du log
@@ -284,50 +363,60 @@ password_hashcat_crack() {
   local logfile="$outdir/session_$(date +%Y%m%d_%H%M%S).txt"
   
   {
-    echo "=== Session Hashcat - Dictionnaire ==="
-    echo "Date: $(date)"
-    echo "Mode: $mode"
-    echo "Fichier hashes: $hashfile"
-    echo "Wordlist: $wordlist"
+    echo "${PASSWORD_HEADER_SESSION_DICT}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_MODE} $mode"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
+    echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
     echo ""
-    echo "=== Démarrage ==="
+    echo "${PASSWORD_HEADER_STARTING}"
   } > "$logfile"
   
-  # Lancement hashcat
+  # Lancement hashcat avec affichage en temps réel
+  echo -e "${C_INFO}${PASSWORD_HASHCAT_RUNNING}${C_RESET}"
+  echo -e "${C_SHADOW}${PASSWORD_HASHCAT_CONTROLS}${C_RESET}"
+  echo ""
+  
   hashcat -m "$mode" -a 0 "$hashfile" "$wordlist" --status --status-timer=10 2>&1 | tee -a "$logfile"
+  
+  local hashcat_status=$?
   
   # Résultats
   {
     echo ""
-    echo "=== Résultats crackés ==="
-    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "Aucun hash cracké"
+    echo "${PASSWORD_HEADER_RESULTS}"
+    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "${PASSWORD_NO_HASH_CRACKED}"
     echo ""
-    echo "Session terminée: $(date)"
+    echo "${PASSWORD_LABEL_SESSION_END} $(date)"
   } >> "$logfile"
   
   echo ""
-  echo -e "${C_GOOD}Cracking terminé${C_RESET}"
-  echo -e "${C_INFO}Pour voir les résultats: hashcat -m $mode \"$hashfile\" --show${C_RESET}"
-  echo -e "${C_GOOD}Log sauvegardé: $logfile${C_RESET}"
+  if [[ $hashcat_status -eq 0 ]]; then
+    echo -e "${C_GOOD}${PASSWORD_CRACK_COMPLETE}${C_RESET}"
+  else
+    printf "${C_YELLOW}${PASSWORD_HASHCAT_STOPPED}${C_RESET}\n" "$hashcat_status"
+  fi
+  printf "${C_INFO}${PASSWORD_HASHCAT_SHOW_RESULTS}${C_RESET}\n" "$mode" "$hashfile"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED} $logfile${C_RESET}"
 }
 
 # Hashcat avec règles
 password_hashcat_rules() {
-  echo -e "${C_HIGHLIGHT}Cracking avec Hashcat + Règles${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_RULES_TITLE}${C_RESET}"
   echo ""
   
   # Sélection du fichier de hash
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND_PREFIX} $hashfile${C_RESET}"
     return 1
   fi
   
   # Sélection du type de hash
-  echo -ne "${C_ACCENT1}Mode hashcat (ex: 0 pour MD5): ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_MODE} ${C_RESET}"
   read -r mode
-  
+
   # Sélection de la wordlist
   echo ""
   local wordlist
@@ -335,11 +424,11 @@ password_hashcat_rules() {
   
   # Sélection des règles
   echo ""
-  echo -e "${C_HIGHLIGHT}Fichiers de règles disponibles:${C_RESET}"
-  echo "  1) best64.rule (règles optimales)"
-  echo "  2) rockyou-30000.rule"
-  echo "  3) dive.rule"
-  echo "  4) Fichier personnalisé"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_RULES_OPTIONS}${C_RESET}"
+  echo "  1) ${PASSWORD_RULE_BEST64}"
+  echo "  2) ${PASSWORD_RULE_ROCKYOU}"
+  echo "  3) ${PASSWORD_RULE_DIVE}"
+  echo "  4) ${PASSWORD_RULE_CUSTOM}"
   echo ""
   echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}"
   read -r rchoice
@@ -347,28 +436,27 @@ password_hashcat_rules() {
   
   local rulefile=""
   case "$rchoice" in
-    1) rulefile="/usr/share/hashcat/rules/best64.rule" ;;
-    2) rulefile="/usr/share/hashcat/rules/rockyou-30000.rule" ;;
-    3) rulefile="/usr/share/hashcat/rules/dive.rule" ;;
+    1) rulefile="/usr/share/doc/hashcat/rules/best66.rule" ;;
+    2) rulefile="/usr/share/doc/hashcat/rules/rockyou-30000.rule" ;;
+    3) rulefile="/usr/share/doc/hashcat/rules/dive.rule" ;;
     4)
-      echo -ne "${C_ACCENT1}Chemin du fichier de règles: ${C_RESET}"
+      echo -ne "${C_ACCENT1}${PASSWORD_RULES_PATH_PROMPT} ${C_RESET}"
       read -r rulefile
       ;;
     *)
-      echo -e "${C_RED}Choix invalide${C_RESET}"
+      echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
       return 1
       ;;
   esac
   
   if [[ ! -f "$rulefile" ]]; then
-    echo -e "${C_RED}Fichier de règles non trouvé: $rulefile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_RULES_FILE_NOT_FOUND} $rulefile${C_RESET}"
     return 1
   fi
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement de hashcat avec règles...${C_RESET}"
-  echo -e "${C_INFO}Règles: $(basename "$rulefile")${C_RESET}"
-  echo ""
+  echo -e "${C_HIGHLIGHT}${PASSWORD_RULES_STARTING}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_RULES_LABEL} $(basename "$rulefile")${C_RESET}"
   
   # Préparation du log
   local outdir="$BALORSH_DATA_DIR/password/hashcat"
@@ -376,76 +464,75 @@ password_hashcat_rules() {
   local logfile="$outdir/rules_$(date +%Y%m%d_%H%M%S).txt"
   
   {
-    echo "=== Session Hashcat - Dictionnaire + Règles ==="
-    echo "Date: $(date)"
-    echo "Mode: $mode"
-    echo "Fichier hashes: $hashfile"
-    echo "Wordlist: $wordlist"
-    echo "Règles: $rulefile"
+    echo "${PASSWORD_HEADER_SESSION_RULES}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_MODE} $mode"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
+    echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
+    echo "${PASSWORD_LABEL_RULES} $rulefile"
     echo ""
-    echo "=== Démarrage ==="
+    echo "${PASSWORD_HEADER_STARTING}"
   } > "$logfile"
   
   hashcat -m "$mode" -a 0 "$hashfile" "$wordlist" -r "$rulefile" --status --status-timer=10 2>&1 | tee -a "$logfile"
   
   {
     echo ""
-    echo "=== Résultats crackés ==="
-    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "Aucun hash cracké"
+    echo "${PASSWORD_HEADER_RESULTS}"
+    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "${PASSWORD_NO_HASH_CRACKED}"
     echo ""
-    echo "Session terminée: $(date)"
+    echo "${PASSWORD_LABEL_SESSION_END} $(date)"
   } >> "$logfile"
-  
+
   echo ""
-  echo -e "${C_GOOD}Cracking terminé${C_RESET}"
-  echo -e "${C_GOOD}Log sauvegardé: $logfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_CRACK_COMPLETE}${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED} $logfile${C_RESET}"
 }
 
 # Hashcat bruteforce (masque)
 password_hashcat_mask() {
-  echo -e "${C_HIGHLIGHT}Hashcat Mask Attack (Bruteforce)${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_MASK_ATTACK_TITLE}${C_RESET}"
   echo ""
-  
+
   # Sélection du fichier de hash
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND}: $hashfile${C_RESET}"
     return 1
   fi
-  
+
   # Sélection du type de hash
-  echo -ne "${C_ACCENT1}Mode hashcat (ex: 0 pour MD5): ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_MODE} ${C_RESET}"
   read -r mode
   
   # Explication des masques
   echo ""
-  echo -e "${C_HIGHLIGHT}Masques hashcat:${C_RESET}"
-  echo "  ?l = minuscules (a-z)"
-  echo "  ?u = majuscules (A-Z)"
-  echo "  ?d = chiffres (0-9)"
-  echo "  ?s = symboles (!@#$...)"
-  echo "  ?a = tous caractères"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_MASK_TITLE}${C_RESET}"
+  echo "  ${PASSWORD_MASK_LOWER}"
+  echo "  ${PASSWORD_MASK_UPPER}"
+  echo "  ${PASSWORD_MASK_DIGIT}"
+  echo "  ${PASSWORD_MASK_SPECIAL}"
+  echo "  ${PASSWORD_MASK_ALL}"
   echo ""
-  echo -e "${C_INFO}Exemples:${C_RESET}"
-  echo "  ?l?l?l?l?l?l = 6 lettres minuscules"
-  echo "  ?u?l?l?l?l?d?d = Majuscule + 4 minuscules + 2 chiffres"
-  echo "  ?a?a?a?a?a?a?a?a = 8 caractères quelconques"
+  echo -e "${C_INFO}${PASSWORD_EXAMPLES}${C_RESET}"
+  echo "  ${PASSWORD_EXAMPLE_1}"
+  echo "  ${PASSWORD_EXAMPLE_2}"
+  echo "  ${PASSWORD_EXAMPLE_3}"
   echo ""
-  
-  echo -ne "${C_ACCENT1}Masque (ex: ?l?l?l?l?d?d): ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_MASK} ${C_RESET}"
   read -r mask
   
   if [[ -z "$mask" ]]; then
-    echo -e "${C_RED}Masque requis${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_MASK_REQUIRED}${C_RESET}"
     return 1
   fi
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement du bruteforce...${C_RESET}"
-  echo -e "${C_INFO}Masque: $mask${C_RESET}"
-  echo -e "${C_YELLOW}Attention: peut être très long selon la complexité${C_RESET}"
-  echo ""
+  echo -e "${C_HIGHLIGHT}${PASSWORD_BRUTEFORCE_STARTING}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_MASK_LABEL} $mask${C_RESET}"
+  echo -e "${C_YELLOW}${PASSWORD_WARNING_LONG}${C_RESET}"
   
   # Préparation du log
   local outdir="$BALORSH_DATA_DIR/password/hashcat"
@@ -453,40 +540,40 @@ password_hashcat_mask() {
   local logfile="$outdir/mask_$(date +%Y%m%d_%H%M%S).txt"
   
   {
-    echo "=== Session Hashcat - Mask Attack ==="
-    echo "Date: $(date)"
-    echo "Mode: $mode"
-    echo "Fichier hashes: $hashfile"
-    echo "Masque: $mask"
+    echo "${PASSWORD_HEADER_SESSION_MASK}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_MODE} $mode"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
+    echo "${PASSWORD_LABEL_MASK} $mask"
     echo ""
-    echo "=== Démarrage ==="
+    echo "${PASSWORD_HEADER_STARTING}"
   } > "$logfile"
   
   hashcat -m "$mode" -a 3 "$hashfile" "$mask" --status --status-timer=10 2>&1 | tee -a "$logfile"
   
   {
     echo ""
-    echo "=== Résultats crackés ==="
-    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "Aucun hash cracké"
+    echo "${PASSWORD_HEADER_RESULTS}"
+    hashcat -m "$mode" "$hashfile" --show 2>/dev/null || echo "${PASSWORD_NO_HASH_CRACKED}"
     echo ""
-    echo "Session terminée: $(date)"
+    echo "${PASSWORD_LABEL_SESSION_END} $(date)"
   } >> "$logfile"
-  
+
   echo ""
-  echo -e "${C_GOOD}Bruteforce terminé${C_RESET}"
-  echo -e "${C_GOOD}Log sauvegardé: $logfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_BRUTEFORCE_COMPLETE}${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED} $logfile${C_RESET}"
 }
 
 # Afficher les résultats hashcat
 password_hashcat_show() {
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND}: $hashfile${C_RESET}"
     return 1
   fi
-  
-  echo -ne "${C_ACCENT1}Mode hashcat utilisé: ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_MODE} ${C_RESET}"
   read -r mode
   
   local outdir="$BALORSH_DATA_DIR/password/hashcat"
@@ -494,20 +581,20 @@ password_hashcat_show() {
   local outfile="$outdir/results_$(date +%Y%m%d_%H%M%S).txt"
   
   echo ""
-  echo -e "${C_HIGHLIGHT}Mots de passe crackés:${C_RESET}"
-  
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_SHOW_TITLE}${C_RESET}"
+
   {
-    echo "=== Résultats Hashcat ==="
-    echo "Date: $(date)"
-    echo "Mode: $mode"
-    echo "Fichier: $hashfile"
+    echo "${PASSWORD_HASHCAT_RESULTS_HEADER}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_MODE} $mode"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
     echo ""
-    echo "=== Hashes crackés ==="
+    echo "${PASSWORD_HASHCAT_HASHES_CRACKED}"
     hashcat -m "$mode" "$hashfile" --show 2>&1
   } | tee "$outfile"
-  
+
   echo ""
-  echo -e "${C_GOOD}Résultats sauvegardés: $outfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED}: $outfile${C_RESET}"
 }
 
 # ==============================================================================
@@ -516,23 +603,31 @@ password_hashcat_show() {
 
 # Crack avec John
 password_john_crack() {
-  echo -e "${C_HIGHLIGHT}Cracking avec John the Ripper${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_TITLE}${C_RESET}"
   echo ""
   
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  # Afficher l'aide sur les formats
+  echo -e "${C_INFO}${PASSWORD_JOHN_FORMATS_HELP}${C_RESET}"
+  echo -e "${C_SHADOW}${PASSWORD_JOHN_FORMAT_EXAMPLES}${C_RESET}"
+  echo ""
+
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND}: $hashfile${C_RESET}"
     return 1
   fi
   
+  # Détection automatique du format (John détecte tout seul)
+  echo -e "${C_INFO}${PASSWORD_JOHN_AUTO_DETECT}${C_RESET}"
   echo ""
-  echo -e "${C_HIGHLIGHT}Modes d'attaque:${C_RESET}"
-  echo "  1) Mode automatique (single crack)"
-  echo "  2) Wordlist"
-  echo "  3) Incremental (bruteforce)"
+
+  echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_ATTACK_MODES}${C_RESET}"
+  echo "  1) ${PASSWORD_JOHN_AUTO}"
+  echo "  2) ${PASSWORD_JOHN_WORDLIST}"
+  echo "  3) ${PASSWORD_JOHN_INCREMENTAL}"
   echo ""
-  echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION} [1]: ${C_RESET}"
   read -r choice
   choice="${choice:-1}"
   
@@ -542,83 +637,88 @@ password_john_crack() {
   
   case "$choice" in
     1)
-      echo -e "${C_HIGHLIGHT}Lancement de John en mode single...${C_RESET}"
+      echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_STARTING_SINGLE}${C_RESET}"
       {
-        echo "=== Session John the Ripper - Single Mode ==="
-        echo "Date: $(date)"
-        echo "Fichier: $hashfile"
+        echo "${PASSWORD_JOHN_HEADER_SINGLE}"
+        echo "${PASSWORD_LABEL_DATE} $(date)"
+        echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
         echo ""
         john --single "$hashfile" 2>&1
         echo ""
-        echo "=== Résultats ==="
+        echo "${PASSWORD_HEADER_RESULTS}"
         john --show "$hashfile" 2>&1
       } | tee "$logfile"
+      echo ""
       ;;
     2)
       local wordlist
       wordlist=$(password_select_wordlist) || return 1
       echo ""
-      echo -e "${C_HIGHLIGHT}Lancement de John avec wordlist...${C_RESET}"
+      echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_STARTING_WORDLIST}${C_RESET}"
       {
-        echo "=== Session John the Ripper - Wordlist ==="
-        echo "Date: $(date)"
-        echo "Fichier: $hashfile"
-        echo "Wordlist: $wordlist"
+        echo "${PASSWORD_JOHN_HEADER_WORDLIST}"
+        echo "${PASSWORD_LABEL_DATE} $(date)"
+        echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
+        echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
         echo ""
         john --wordlist="$wordlist" "$hashfile" 2>&1
         echo ""
-        echo "=== Résultats ==="
+        echo "${PASSWORD_HEADER_RESULTS}"
         john --show "$hashfile" 2>&1
       } | tee "$logfile"
+      echo ""
       ;;
     3)
-      echo -e "${C_HIGHLIGHT}Lancement de John en mode incremental...${C_RESET}"
-      echo -e "${C_YELLOW}Attention: peut être très long${C_RESET}"
+      echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_STARTING_INCREMENTAL}${C_RESET}"
+      echo -e "${C_YELLOW}${PASSWORD_WARNING_LONG}${C_RESET}"
       {
-        echo "=== Session John the Ripper - Incremental ==="
-        echo "Date: $(date)"
-        echo "Fichier: $hashfile"
+        echo "${PASSWORD_JOHN_HEADER_INCREMENTAL}"
+        echo "${PASSWORD_LABEL_DATE} $(date)"
+        echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
         echo ""
         john --incremental "$hashfile" 2>&1
         echo ""
-        echo "=== Résultats ==="
+        echo "${PASSWORD_HEADER_RESULTS}"
         john --show "$hashfile" 2>&1
       } | tee "$logfile"
+      echo ""
       ;;
     *)
-      echo -e "${C_RED}Choix invalide${C_RESET}"
+      echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
       return 1
       ;;
   esac
   
   echo ""
-  echo -e "${C_GOOD}Pour voir les résultats: john --show \"$hashfile\"${C_RESET}"
-  echo -e "${C_GOOD}Log sauvegardé: $logfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_JOHN_SHOW_RESULTS} \"$hashfile\"${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED} $logfile${C_RESET}"
+  echo ""
+  read -p "${PASSWORD_PRESS_ENTER}" 
 }
 
 # John avec règles
 password_john_rules() {
-  echo -e "${C_HIGHLIGHT}John the Ripper avec règles${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_RULES_TITLE}${C_RESET}"
   echo ""
-  
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND}: $hashfile${C_RESET}"
     return 1
   fi
-  
+
   local wordlist
   wordlist=$(password_select_wordlist) || return 1
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Règles disponibles:${C_RESET}"
-  echo "  1) best64"
-  echo "  2) d3ad0ne"
-  echo "  3) dive"
-  echo "  4) jumbo"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_RULES_AVAILABLE}${C_RESET}"
+  echo "  1) ${PASSWORD_JOHN_RULE_BEST64}"
+  echo "  2) ${PASSWORD_JOHN_RULE_D3AD0NE}"
+  echo "  3) ${PASSWORD_JOHN_RULE_DIVE}"
+  echo "  4) ${PASSWORD_JOHN_RULE_JUMBO}"
   echo ""
-  echo -ne "${C_ACCENT1}Choix [1]: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION} [1]: ${C_RESET}"
   read -r rchoice
   rchoice="${rchoice:-1}"
   
@@ -629,41 +729,44 @@ password_john_rules() {
     3) rules="dive" ;;
     4) rules="jumbo" ;;
     *)
-      echo -e "${C_RED}Choix invalide${C_RESET}"
+      echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
       return 1
       ;;
   esac
-  
+
   local outdir="$BALORSH_DATA_DIR/password/john"
   mkdir -p "$outdir"
   local logfile="$outdir/rules_$(date +%Y%m%d_%H%M%S).txt"
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement de John avec règles $rules...${C_RESET}"
-  
+  echo -e "${C_HIGHLIGHT}${PASSWORD_JOHN_STARTING_RULES} $rules...${C_RESET}"
+
   {
-    echo "=== Session John the Ripper - Règles ==="
-    echo "Date: $(date)"
-    echo "Fichier: $hashfile"
-    echo "Wordlist: $wordlist"
-    echo "Règles: $rules"
+    echo "${PASSWORD_JOHN_HEADER_RULES}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
+    echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
+    echo "${PASSWORD_LABEL_RULES} $rules"
     echo ""
     john --wordlist="$wordlist" --rules="$rules" "$hashfile" 2>&1
     echo ""
-    echo "=== Résultats ==="
+    echo "${PASSWORD_HEADER_RESULTS}"
     john --show "$hashfile" 2>&1
   } | tee "$logfile"
-  
+
   echo ""
-  echo -e "${C_GOOD}Log sauvegardé: $logfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_JOHN_SHOW_RESULTS} \"$hashfile\"${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED} $logfile${C_RESET}"
+  echo ""
+  read -p "${PASSWORD_PRESS_ENTER}" 
 }
 
 # Afficher résultats John
 password_john_show() {
-  echo -ne "${C_ACCENT1}Fichier de hashes: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_PROMPT_HASHFILE} ${C_RESET}"
   read -r hashfile
   if [[ ! -f "$hashfile" ]]; then
-    echo -e "${C_RED}Fichier non trouvé: $hashfile${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND}: $hashfile${C_RESET}"
     return 1
   fi
   
@@ -672,19 +775,21 @@ password_john_show() {
   local outfile="$outdir/results_$(date +%Y%m%d_%H%M%S).txt"
   
   echo ""
-  echo -e "${C_HIGHLIGHT}Mots de passe crackés (John):${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_HASHCAT_SHOW_TITLE}${C_RESET}"
   
   {
-    echo "=== Résultats John the Ripper ==="
-    echo "Date: $(date)"
-    echo "Fichier: $hashfile"
+    echo "${PASSWORD_JOHN_RESULTS_TITLE}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_LABEL_HASHFILE} $hashfile"
     echo ""
-    echo "=== Hashes crackés ==="
+    echo "${PASSWORD_HASHCAT_HASHES_CRACKED}"
     john --show "$hashfile" 2>&1
   } | tee "$outfile"
   
   echo ""
-  echo -e "${C_GOOD}Résultats sauvegardés: $outfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED}: $outfile${C_RESET}"
+  echo ""
+  read -p "${PASSWORD_PRESS_ENTER}" 
 }
 
 # ==============================================================================
@@ -693,34 +798,36 @@ password_john_show() {
 
 # Générer wordlist avec crunch
 password_crunch_generate() {
-  echo -e "${C_HIGHLIGHT}Génération de wordlist avec Crunch${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_CRUNCH_TITLE}${C_RESET}"
   echo ""
-  
-  echo -ne "${C_ACCENT1}Longueur minimale: ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_CRUNCH_MIN_LEN} ${C_RESET}"
   read -r minlen
-  echo -ne "${C_ACCENT1}Longueur maximale: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CRUNCH_MAX_LEN} ${C_RESET}"
   read -r maxlen
-  
+
   if ! [[ "$minlen" =~ ^[0-9]+$ ]] || ! [[ "$maxlen" =~ ^[0-9]+$ ]]; then
-    echo -e "${C_RED}Longueurs invalides${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_CRUNCH_INVALID_LEN}${C_RESET}"
     return 1
   fi
-  
+
   if (( minlen > maxlen )); then
-    echo -e "${C_RED}Min doit être <= Max${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_CRUNCH_MIN_MAX}${C_RESET}"
     return 1
   fi
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Jeu de caractères:${C_RESET}"
-  echo "  1) Minuscules (a-z)"
-  echo "  2) Majuscules (A-Z)"
-  echo "  3) Chiffres (0-9)"
-  echo "  4) Minuscules + chiffres"
-  echo "  5) Alphanumériques (a-zA-Z0-9)"
-  echo "  6) Personnalisé"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_CRUNCH_CHARSET_TITLE}${C_RESET}"
+  echo "  1) ${PASSWORD_CRUNCH_CHARSET_LOWER}"
+  echo "  2) ${PASSWORD_CRUNCH_CHARSET_UPPER}"
+  echo "  3) ${PASSWORD_CRUNCH_CHARSET_DIGIT}"
+  echo "  4) ${PASSWORD_CRUNCH_CHARSET_LOWER_DIGIT}"
+  echo "  5) ${PASSWORD_CRUNCH_CHARSET_ALPHA}"
+  echo "  6) ${PASSWORD_CRUNCH_CHARSET_ALPHA_SPECIAL}"
+  echo "  7) ${PASSWORD_CRUNCH_CHARSET_ALL}"
+  echo "  8) ${PASSWORD_CRUNCH_CHARSET_CUSTOM}"
   echo ""
-  echo -ne "${C_ACCENT1}Choix [4]: ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION} [4]: ${C_RESET}"
   read -r cchoice
   cchoice="${cchoice:-4}"
   
@@ -731,53 +838,54 @@ password_crunch_generate() {
     3) charset="0123456789" ;;
     4) charset="abcdefghijklmnopqrstuvwxyz0123456789" ;;
     5) charset="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" ;;
-    6)
-      echo -ne "${C_ACCENT1}Caractères personnalisés: ${C_RESET}"
+    6) charset="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()" ;;
+    7) charset="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()_+-=[]{}|;:,.<>?/" ;;
+    8)
+      echo -ne "${C_ACCENT1}${PASSWORD_CRUNCH_CUSTOM_PROMPT} ${C_RESET}"
       read -r charset
       ;;
     *)
-      echo -e "${C_RED}Choix invalide${C_RESET}"
+      echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
       return 1
       ;;
   esac
-  
+
   # Fichier de sortie
   local outdir="$BALORSH_DATA_DIR/password/wordlists"
   mkdir -p "$outdir"
   local outfile="$outdir/crunch_${minlen}-${maxlen}_$(date +%Y%m%d_%H%M%S).txt"
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Estimation de la taille...${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_CRUNCH_ESTIMATION}${C_RESET}"
   
   # Calcul estimation (simplifié)
   local charcount=${#charset}
-  echo -e "${C_INFO}Jeu de $charcount caractères${C_RESET}"
-  echo -e "${C_INFO}Longueurs: $minlen à $maxlen${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_CRUNCH_CHARSET_SIZE//%d/$charcount}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_CRUNCH_LENGTHS//%s/$minlen}${C_RESET}\" | sed \"s/%s/$maxlen/"
   
   echo ""
-  echo -e "${C_YELLOW}Attention: la génération peut créer des fichiers TRÈS volumineux${C_RESET}"
-  echo -ne "${C_ACCENT1}Continuer? [y/N]: ${C_RESET}"
+  echo -e "${C_YELLOW}${PASSWORD_CRUNCH_WARNING}${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CRUNCH_CONFIRM} ${C_RESET}"
   read -r confirm
   
   if [[ "${confirm,,}" != "y" ]]; then
-    echo "Annulé"
+    echo "${PASSWORD_CRUNCH_CANCELLED}"
     return 0
   fi
-  
+
   echo ""
-  echo -e "${C_HIGHLIGHT}Génération en cours...${C_RESET}"
-  echo -e "${C_INFO}Sortie: $outfile${C_RESET}"
-  
+  echo -e "${C_HIGHLIGHT}${PASSWORD_CRUNCH_GENERATING}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_CRUNCH_OUTPUT} $outfile${C_RESET}"
   crunch "$minlen" "$maxlen" "$charset" -o "$outfile"
   
   echo ""
-  echo -e "${C_GOOD}Wordlist générée: $outfile${C_RESET}"
-  
+  echo -e "${C_GOOD}${PASSWORD_WORDLIST_GENERATED}: $outfile${C_RESET}"
+
   if [[ -f "$outfile" ]]; then
     local size=$(du -sh "$outfile" | awk '{print $1}')
     local lines=$(wc -l < "$outfile")
-    echo -e "${C_INFO}Taille: $size${C_RESET}"
-    echo -e "${C_INFO}Lignes: $lines${C_RESET}"
+    echo -e "${C_INFO}${PASSWORD_CRUNCH_SIZE} $size${C_RESET}"
+    echo -e "${C_INFO}${PASSWORD_CRUNCH_LINES} $lines${C_RESET}"
   fi
 }
 
@@ -787,23 +895,23 @@ password_crunch_generate() {
 
 # Medusa - brute force services réseau
 password_medusa_attack() {
-  echo -e "${C_HIGHLIGHT}Medusa - Brute force réseau${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_MEDUSA_TITLE}${C_RESET}"
   echo ""
-  
-  echo -e "${C_HIGHLIGHT}Services supportés:${C_RESET}"
-  echo "  ssh, ftp, http, mysql, postgres, rdp, smb, telnet, vnc..."
+
+  echo -e "${C_HIGHLIGHT}${PASSWORD_MEDUSA_SERVICES}${C_RESET}"
+  echo "  ${PASSWORD_MEDUSA_SERVICES_LIST}"
   echo ""
-  
-  echo -ne "${C_ACCENT1}Cible (IP ou hostname): ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_MEDUSA_TARGET} ${C_RESET}"
   read -r target
   
-  echo -ne "${C_ACCENT1}Service (ex: ssh, ftp, http): ${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_MEDUSA_SERVICE} ${C_RESET}"
   read -r service
-  
-  echo -ne "${C_ACCENT1}Utilisateur (-u) ou fichier users (-U): ${C_RESET}"
+
+  echo -ne "${C_ACCENT1}${PASSWORD_MEDUSA_USER_OPT} ${C_RESET}"
   read -r user_input
   
-  local user_opt=""
+  local user_opt
   if [[ -f "$user_input" ]]; then
     user_opt="-U $user_input"
   else
@@ -819,64 +927,116 @@ password_medusa_attack() {
   local outfile="$outdir/attack_$(date +%Y%m%d_%H%M%S).txt"
   
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement de Medusa...${C_RESET}"
-  echo -e "${C_INFO}Cible: $target${C_RESET}"
-  echo -e "${C_INFO}Service: $service${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_MEDUSA_STARTING}${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_MEDUSA_TARGET_LABEL} $target${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_MEDUSA_SERVICE_LABEL} $service${C_RESET}"
   echo ""
   
   {
-    echo "=== Attaque Medusa ==="
-    echo "Date: $(date)"
-    echo "Cible: $target"
-    echo "Service: $service"
-    echo "User option: $user_opt"
-    echo "Wordlist: $wordlist"
+    echo "${PASSWORD_MEDUSA_HEADER}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_MEDUSA_TARGET_LABEL} $target"
+    echo "${PASSWORD_MEDUSA_SERVICE_LABEL} $service"
+    echo "${PASSWORD_MEDUSA_USER_OPTION} $user_opt"
+    echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
     echo ""
-    echo "=== Résultats ==="
+    echo "${PASSWORD_HEADER_RESULTS}"
     medusa -h "$target" -M "$service" $user_opt -P "$wordlist" -t 4 -v 4 2>&1
   } | tee "$outfile"
   
   echo ""
-  echo -e "${C_GOOD}Attaque terminée${C_RESET}"
-  echo -e "${C_GOOD}Résultats sauvegardés: $outfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_ATTACK_COMPLETE}${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED}: $outfile${C_RESET}"
+  echo ""
+  read -p "${PASSWORD_PRESS_ENTER}" 
 }
 
 # Ncrack - network cracker
 password_ncrack_attack() {
-  echo -e "${C_HIGHLIGHT}Ncrack - Network Authentication Cracker${C_RESET}"
+  echo -e "${C_HIGHLIGHT}${PASSWORD_NCRACK_TITLE}${C_RESET}"
   echo ""
   
-  echo -ne "${C_ACCENT1}Cible (ex: ssh://192.168.1.1): ${C_RESET}"
+  echo -e "${C_INFO}${PASSWORD_NCRACK_CREDS_HELP}${C_RESET}"
+  echo ""
+
+  echo -ne "${C_ACCENT1}${PASSWORD_NCRACK_TARGET} ${C_RESET}"
   read -r target
   
-  echo -ne "${C_ACCENT1}Utilisateur: ${C_RESET}"
-  read -r username
-  
   echo ""
-  local wordlist
-  wordlist=$(password_select_wordlist) || return 1
+  echo -e "${C_HIGHLIGHT}${PASSWORD_NCRACK_CREDS_MODE}${C_RESET}"
+  echo "  1) ${PASSWORD_NCRACK_MODE_USER_WORDLIST}"
+  echo "  2) ${PASSWORD_NCRACK_MODE_CREDS_FILE}"
+  echo ""
+  echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION} [1]: ${C_RESET}"
+  read -r cred_mode
+  cred_mode="${cred_mode:-1}"
+  
+  local ncrack_opts=""
+  
+  case "$cred_mode" in
+    1)
+      echo -ne "${C_ACCENT1}${PASSWORD_NCRACK_USERNAME} ${C_RESET}"
+      read -r username
+      
+      echo ""
+      local wordlist
+      wordlist=$(password_select_wordlist)
+      if [[ $? -ne 0 ]]; then
+        echo ""
+        read -p "${PASSWORD_PRESS_ENTER}" 
+        return 1
+      fi
+      
+      ncrack_opts="-u \"$username\" -P \"$wordlist\""
+      ;;
+    2)
+      echo -ne "${C_ACCENT1}${PASSWORD_NCRACK_CREDS_FILE_PROMPT} ${C_RESET}"
+      read -r credsfile
+      
+      if [[ ! -f "$credsfile" ]]; then
+        echo -e "${C_RED}${PASSWORD_FILE_NOT_FOUND_PREFIX} $credsfile${C_RESET}"
+        echo ""
+        read -p "${PASSWORD_PRESS_ENTER}" 
+        return 1
+      fi
+      
+      ncrack_opts="-C \"$credsfile\""
+      ;;
+    *)
+      echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
+      echo ""
+      read -p "${PASSWORD_PRESS_ENTER}" 
+      return 1
+      ;;
+  esac
   
   local outdir="$BALORSH_DATA_DIR/password/ncrack"
   mkdir -p "$outdir"
   local outfile="$outdir/attack_$(date +%Y%m%d_%H%M%S).txt"
   
   echo ""
-  echo -e "${C_HIGHLIGHT}Lancement de Ncrack...${C_RESET}"
-  
+  echo -e "${C_HIGHLIGHT}${PASSWORD_NCRACK_STARTING}${C_RESET}"
+
   {
-    echo "=== Attaque Ncrack ==="
-    echo "Date: $(date)"
-    echo "Cible: $target"
-    echo "Username: $username"
-    echo "Wordlist: $wordlist"
+    echo "${PASSWORD_NCRACK_HEADER}"
+    echo "${PASSWORD_LABEL_DATE} $(date)"
+    echo "${PASSWORD_MEDUSA_TARGET_LABEL} $target"
+    if [[ "$cred_mode" == "1" ]]; then
+      echo "${PASSWORD_NCRACK_USER_LABEL} $username"
+      echo "${PASSWORD_LABEL_WORDLIST} $wordlist"
+    else
+      echo "${PASSWORD_NCRACK_CREDS_FILE_LABEL} $credsfile"
+    fi
     echo ""
-    echo "=== Résultats ==="
-    ncrack -u "$username" -P "$wordlist" "$target" -v 2>&1
+    echo "${PASSWORD_HEADER_RESULTS}"
+    eval "ncrack $ncrack_opts \"$target\" -v" 2>&1
   } | tee "$outfile"
-  
+
   echo ""
-  echo -e "${C_GOOD}Scan terminé${C_RESET}"
-  echo -e "${C_GOOD}Résultats sauvegardés: $outfile${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_SCAN_COMPLETE}${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_RESULTS_SAVED}: $outfile${C_RESET}"
+  echo ""
+  read -p "${PASSWORD_PRESS_ENTER}" 
 }
 
 # ==============================================================================
@@ -885,13 +1045,13 @@ password_ncrack_attack() {
 
 # Nettoyer anciens fichiers
 password_cleanup() {
-  echo -e "${C_YELLOW}Nettoyage des anciens fichiers...${C_RESET}"
-  echo -ne "${C_ACCENT1}Supprimer les fichiers de plus de combien de jours? [7]: ${C_RESET}"
+  echo -e "${C_YELLOW}${PASSWORD_CLEANUP_TITLE_SHORT}${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_CLEANUP_PROMPT_DAYS} ${C_RESET}"
   read -r days
   days="${days:-7}"
-  
+
   if ! [[ "$days" =~ ^[0-9]+$ ]]; then
-    echo -e "${C_RED}Nombre de jours invalide${C_RESET}"
+    echo -e "${C_RED}${PASSWORD_CLEANUP_INVALID_DAYS}${C_RESET}"
     return 1
   fi
   
@@ -901,82 +1061,82 @@ password_cleanup() {
     ((count++))
   done < <(find "$BALORSH_DATA_DIR/password" -type f -mtime +"$days" -print0 2>/dev/null)
   
-  echo -e "${C_GOOD}$count fichier(s) supprimé(s)${C_RESET}"
+  echo -e "${C_GOOD}${PASSWORD_CLEANUP_FILES_DELETED//%d/$count}${C_RESET}"
 }
 
 # Aide
 password_help() {
   cat <<EOF
 ${C_ACCENT1}╔═══════════════════════════════════════════════════════════════════╗${C_RESET}
-${C_ACCENT1}║${C_RESET}                   ${C_GOOD}AIDE PASSWORD STACK${C_RESET}                        ${C_ACCENT1}║${C_RESET}
+${C_ACCENT1}║${C_RESET}                   ${C_GOOD}${PASSWORD_HELP_HEADER}${C_RESET}                        ${C_ACCENT1}║${C_RESET}
 ${C_ACCENT1}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}
 
-${C_HIGHLIGHT}OUTILS DISPONIBLES:${C_RESET}
-  • hashid      - Identifier les types de hash
-  • hashcat     - Cracking GPU-accéléré (le plus rapide)
-  • john        - John the Ripper (CPU, très versatile)
-  • crunch      - Générateur de wordlists
-  • medusa      - Brute force services réseau (parallèle)
-  • ncrack      - Network authentication cracker
-  • wordlists   - Collection massive de wordlists
+${C_HIGHLIGHT}${PASSWORD_HELP_TOOLS_TITLE}${C_RESET}
+  • ${PASSWORD_HELP_TOOL_HASHID}
+  • ${PASSWORD_HELP_TOOL_HASHCAT}
+  • ${PASSWORD_HELP_TOOL_JOHN}
+  • ${PASSWORD_HELP_TOOL_CRUNCH}
+  • ${PASSWORD_HELP_TOOL_MEDUSA}
+  • ${PASSWORD_HELP_TOOL_NCRACK}
+  • ${PASSWORD_HELP_TOOL_WORDLISTS}
 
-${C_HIGHLIGHT}WORKFLOW TYPIQUE:${C_RESET}
-  1. Identifier le hash → hashid
-  2. Choisir l'outil: hashcat (GPU) ou john (CPU)
-  3. Sélectionner wordlist ou bruteforce
-  4. Analyser les résultats
+${C_HIGHLIGHT}${PASSWORD_HELP_WORKFLOW_TITLE}${C_RESET}
+  ${PASSWORD_HELP_WORKFLOW_1}
+  ${PASSWORD_HELP_WORKFLOW_2}
+  ${PASSWORD_HELP_WORKFLOW_3}
+  ${PASSWORD_HELP_WORKFLOW_4}
 
-${C_HIGHLIGHT}TYPES DE HASH COURANTS:${C_RESET}
-  • MD5 (hashcat: 0, john: raw-md5)
-  • SHA1 (hashcat: 100, john: raw-sha1)
-  • NTLM (hashcat: 1000, john: nt)
-  • bcrypt (hashcat: 3200, john: bcrypt)
-  • WPA/WPA2 (hashcat: 22000)
+${C_HIGHLIGHT}${PASSWORD_HELP_HASH_TYPES_TITLE}${C_RESET}
+  • ${PASSWORD_HELP_HASH_MD5}
+  • ${PASSWORD_HELP_HASH_SHA1}
+  • ${PASSWORD_HELP_HASH_NTLM}
+  • ${PASSWORD_HELP_HASH_BCRYPT}
+  • ${PASSWORD_HELP_HASH_WPA}
 
-${C_HIGHLIGHT}WORDLISTS:${C_RESET}
-  Emplacement: $WORDLISTS_DIR
-  Principale: rockyou.txt (14M, 14 millions de mots de passe)
-  Collection: SecLists (passwords, usernames, etc.)
+${C_HIGHLIGHT}${PASSWORD_HELP_WORDLISTS_TITLE}${C_RESET}
+  ${PASSWORD_HELP_WORDLISTS_LOCATION} \$WORDLISTS_DIR
+  ${PASSWORD_HELP_WORDLISTS_MAIN}
+  ${PASSWORD_HELP_WORDLISTS_COLLECTION}
 
-${C_HIGHLIGHT}MODES D'ATTAQUE:${C_RESET}
-  • Dictionary: Utilise une wordlist existante
-  • Rules: Applique des transformations (leet, case, etc.)
-  • Mask/Brute: Teste toutes les combinaisons d'un pattern
+${C_HIGHLIGHT}${PASSWORD_HELP_ATTACKS_TITLE}${C_RESET}
+  • ${PASSWORD_HELP_ATTACK_DICT}
+  • ${PASSWORD_HELP_ATTACK_RULES}
+  • ${PASSWORD_HELP_ATTACK_MASK}
 
-${C_HIGHLIGHT}PERFORMANCE:${C_RESET}
-  Hashcat + GPU >> John (CPU)
-  MD5: ~10 milliards hash/sec (GPU moderne)
-  bcrypt: ~100k hash/sec (très lent par design)
+${C_HIGHLIGHT}${PASSWORD_HELP_PERFORMANCE_TITLE}${C_RESET}
+  ${PASSWORD_HELP_PERF_HASHCAT}
+  ${PASSWORD_HELP_PERF_MD5}
+  ${PASSWORD_HELP_PERF_BCRYPT}
 
-${C_HIGHLIGHT}CONSEILS:${C_RESET}
-  • Toujours commencer par hashid pour identifier
-  • Utiliser hashcat si vous avez un GPU
-  • Commencer par rockyou.txt (couvre 80% des cas)
-  • Ajouter des règles pour augmenter les chances
-  • Le bruteforce est un dernier recours (très lent)
+${C_HIGHLIGHT}${PASSWORD_HELP_TIPS_TITLE}${C_RESET}
+  • ${PASSWORD_HELP_TIP_1}
+  • ${PASSWORD_HELP_TIP_2}
+  • ${PASSWORD_HELP_TIP_3}
+  • ${PASSWORD_HELP_TIP_4}
+  • ${PASSWORD_HELP_TIP_5}
 
-${C_HIGHLIGHT}SERVICES RÉSEAU (MEDUSA/NCRACK):${C_RESET}
-  SSH, FTP, HTTP, MySQL, PostgreSQL, RDP, SMB, Telnet, VNC
-  Attention: peut verrouiller les comptes après X tentatives
+${C_HIGHLIGHT}${PASSWORD_HELP_NETWORK_TITLE}${C_RESET}
+  ${PASSWORD_HELP_NETWORK_SERVICES}
+  ${PASSWORD_HELP_NETWORK_WARNING}
 
-${C_YELLOW}AVERTISSEMENT:${C_RESET}
-  Le cracking de mots de passe doit être fait uniquement:
-  - Sur vos propres systèmes
-  - Dans un cadre légal (pentest autorisé)
-  - Pour la récupération de vos propres données
+${C_YELLOW}${PASSWORD_HELP_WARNING_TITLE}${C_RESET}
+  ${PASSWORD_HELP_WARNING_1}
+  ${PASSWORD_HELP_WARNING_2}
+  ${PASSWORD_HELP_WARNING_3}
+  ${PASSWORD_HELP_WARNING_4}
 
-  L'accès non autorisé est illégal.
+  ${PASSWORD_HELP_WARNING_5}
 
-${C_HIGHLIGHT}EXEMPLES:${C_RESET}
-  hashid 5f4dcc3b5aa765d61d8327deb882cf99
-  hashcat -m 0 -a 0 hashes.txt rockyou.txt
-  john --wordlist=rockyou.txt hashes.txt
-  crunch 6 8 abcdef123 -o wordlist.txt
-  medusa -h 192.168.1.1 -M ssh -u admin -P rockyou.txt
+${C_HIGHLIGHT}${PASSWORD_HELP_EXAMPLES_TITLE}${C_RESET}
+  ${PASSWORD_HELP_EXAMPLE_HASHID}
+  ${PASSWORD_HELP_EXAMPLE_HASHCAT}
+  ${PASSWORD_HELP_EXAMPLE_JOHN}
+  ${PASSWORD_HELP_EXAMPLE_CRUNCH}
+  ${PASSWORD_HELP_EXAMPLE_MEDUSA}
 
 EOF
   
-  echo -ne "${C_ACCENT1}Appuyez sur Entrée pour continuer...${C_RESET}"
+  echo -ne "${C_ACCENT1}${PASSWORD_HELP_PRESS_ENTER}${C_RESET}"
   read -r
 }
 
@@ -990,33 +1150,34 @@ stack_menu() {
     echo -e "${C_ACCENT2}╔═══════════════════════════════════════════════════════════════════╗${C_RESET}"
     echo -e "                  ${C_GOOD}${PASSWORD_MENU_TITLE}${C_RESET}                 "
     echo -e "${C_ACCENT2}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}"
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_IDENTIFICATION}${C_RESET}                                   "
-    echo -e "   ${PASSWORD_MENU_1}                              "
-    echo -e "   ${PASSWORD_MENU_2}                         "
-    echo -e "                                                                 "
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_HASHCAT}${C_RESET}                          "
-    echo -e "   ${PASSWORD_MENU_3}                                   "
-    echo -e "   ${PASSWORD_MENU_4}                          "
-    echo -e "   ${PASSWORD_MENU_5}                       "
-    echo -e "   ${PASSWORD_MENU_6}                               "
-    echo -e "                                                                 "
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_JOHN}${C_RESET}                  "
-    echo -e "   ${PASSWORD_MENU_7}                         "
-    echo -e "   ${PASSWORD_MENU_8}                                 "
-    echo -e "   ${PASSWORD_MENU_9}                                  "
-    echo -e "                                                                 "
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_WORDLIST}${C_RESET}                            "
-    echo -e "   ${PASSWORD_MENU_10}                 "
-    echo -e "                                                                 "
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_NETWORK}${C_RESET}                                 "
-    echo -e "   ${PASSWORD_MENU_11}                    "
-    echo -e "   ${PASSWORD_MENU_12}                 "
-    echo -e "                                                                 "
-    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_UTILS}${C_RESET}                                     "
-    echo -e "   ${PASSWORD_MENU_13}                               "
-    echo -e "   ${PASSWORD_MENU_14}                                                    "
-    echo -e "                                                                 "
-    echo -e "   ${PASSWORD_MENU_0}                                                   "
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_IDENTIFICATION}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${PASSWORD_MENU_1}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${PASSWORD_MENU_2}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_HASHCAT}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}3)${C_RESET} ${C_INFO}${PASSWORD_MENU_3}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}4)${C_RESET} ${C_INFO}${PASSWORD_MENU_4}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${PASSWORD_MENU_5}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${PASSWORD_MENU_6}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_JOHN}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${PASSWORD_MENU_7}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${PASSWORD_MENU_8}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${PASSWORD_MENU_9}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_WORDLIST}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${PASSWORD_MENU_10}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_NETWORK}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${PASSWORD_MENU_11}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${PASSWORD_MENU_12}${C_RESET}"
+    echo ""
+    echo -e "   ${C_SHADOW}${PASSWORD_MENU_SECTION_UTILS}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${PASSWORD_MENU_13}${C_RESET}"
+    echo -e "   ${C_HIGHLIGHT}14)${C_RESET} ${C_INFO}${PASSWORD_MENU_14}${C_RESET}"
+    echo ""
+    echo -e "   ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${PASSWORD_MENU_0}${C_RESET}"
     echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
     echo -ne "${C_ACCENT1}${BALORSH_CHOICE}${C_RESET}"
     read -r choice

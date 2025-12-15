@@ -205,6 +205,9 @@ install_roguehostapd_python   # module Python via ton fork GitHub
 install_wifiphisher
 patch_pyric_rfkill
 
+# Créer le dossier data pour marquer l'installation
+ensure_stack_data_dir "wifi"
+
 echo ""
 printf "$INSTALL_STACK_COMPLETE\n" "WiFi"
 echo "$WIFI_TOOLS_AVAILABLE"
