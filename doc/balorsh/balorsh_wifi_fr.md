@@ -121,9 +121,36 @@ Lance bettercap pour la reconnaissance WiFi.
 
 ---
 
+### [8] Scanner PMF (Protected Management Frames)
+
+Scanne les réseaux WiFi pour détecter le support de PMF (802.11w).
+
+**Ce que ça fait :**
+- Scanne les réseaux WiFi à proximité
+- Détecte si PMF est activé, requis ou désactivé
+- Affiche les informations de sécurité des réseaux
+- Sauvegarde les résultats dans `/opt/balorsh/data/wifi/pmf_scans/`
+
+**Informations détectées :**
+- ESSID (nom du réseau)
+- BSSID (adresse MAC de l'AP)
+- Canal
+- Signal (puissance)
+- Sécurité (WPA2/WPA3)
+- État PMF (Capable, Required, Disabled)
+
+**Cas d'usage :** 
+- Identifier les réseaux avec PMF activé (protection contre les attaques deauth)
+- Déterminer quels réseaux sont vulnérables aux attaques de déauthentification
+- Auditer la sécurité des réseaux WiFi d'entreprise
+
+**Note :** PMF (Protected Management Frames) est une fonctionnalité de sécurité qui protège contre les attaques de déauthentification. Les réseaux WPA3 requirent PMF obligatoirement.
+
+---
+
 ## Attaques
 
-### [8] Attaque deauth (aireplay-ng)
+### [9] Attaque deauth (aireplay-ng)
 
 Effectue des attaques de déauthentification pour déconnecter les clients d'un point d'accès.
 
@@ -141,7 +168,7 @@ Effectue des attaques de déauthentification pour déconnecter les clients d'un 
 
 ---
 
-### [9] Attaque WPS (reaver, bully, pixie dust)
+### [10] Attaque WPS (reaver, bully, pixie dust)
 
 Tente de cracker le PIN WPS pour récupérer le mot de passe WiFi.
 
@@ -158,7 +185,7 @@ Tente de cracker le PIN WPS pour récupérer le mot de passe WiFi.
 
 ---
 
-### [10] Capture handshake
+### [11] Capture handshake
 
 Capture les handshakes WPA/WPA2 4-way pour cracking offline.
 
@@ -177,7 +204,7 @@ Capture les handshakes WPA/WPA2 4-way pour cracking offline.
 
 ## Cracking
 
-### [11] Crack avec aircrack-ng
+### [12] Crack avec aircrack-ng
 
 Cracke les handshakes capturés avec aircrack-ng et une wordlist.
 
@@ -192,7 +219,7 @@ Cracke les handshakes capturés avec aircrack-ng et une wordlist.
 
 ---
 
-### [12] Crack avec hashcat
+### [13] Crack avec hashcat
 
 Cracke les handshakes avec hashcat (accélération GPU).
 
@@ -209,7 +236,7 @@ Cracke les handshakes avec hashcat (accélération GPU).
 
 ---
 
-### [13] Convertir capture en hashcat
+### [14] Convertir capture en hashcat
 
 Convertit les fichiers .cap en format .hc22000 compatible hashcat.
 
@@ -223,7 +250,7 @@ Convertit les fichiers .cap en format .hc22000 compatible hashcat.
 
 ---
 
-### [14] Auto-capture (handshake/PMKID)
+### [15] Auto-capture (handshake/PMKID)
 
 Capture automatiquement les handshakes et PMKID avec hcxdumptool.
 
@@ -240,7 +267,7 @@ Capture automatiquement les handshakes et PMKID avec hcxdumptool.
 
 ---
 
-### [15] Capture PMKID (hcxdumptool)
+### [16] Capture PMKID (hcxdumptool)
 
 Capture spécifiquement les PMKID des points d'accès.
 
@@ -256,7 +283,7 @@ Capture spécifiquement les PMKID des points d'accès.
 
 ---
 
-### [16] Gestion de session (démarrer/terminer)
+### [17] Gestion de session (démarrer/terminer)
 
 Gère les sessions de capture pour une meilleure organisation.
 
@@ -269,7 +296,7 @@ Gère les sessions de capture pour une meilleure organisation.
 
 ---
 
-### [17] Sélectionner cible (TUI)
+### [18] Sélectionner cible (TUI)
 
 Sélection interactive de cible avec fzf (fuzzy finder).
 
@@ -285,7 +312,7 @@ Sélection interactive de cible avec fzf (fuzzy finder).
 
 ---
 
-### [18] Bruteforce
+### [19] Bruteforce
 
 Effectue des attaques bruteforce basées sur des masques avec hashcat.
 
@@ -302,7 +329,7 @@ Effectue des attaques bruteforce basées sur des masques avec hashcat.
 
 ---
 
-### [19] Adresse MAC aléatoire
+### [20] Adresse MAC aléatoire
 
 Change l'adresse MAC de l'interface sélectionnée.
 
@@ -315,7 +342,7 @@ Change l'adresse MAC de l'interface sélectionnée.
 
 ---
 
-### [20] Nettoyer anciennes captures
+### [21] Nettoyer anciennes captures
 
 Supprime les anciens fichiers de capture pour libérer de l'espace disque.
 
@@ -329,7 +356,7 @@ Supprime les anciens fichiers de capture pour libérer de l'espace disque.
 
 ---
 
-### [21] Saut de canaux adaptatif
+### [22] Saut de canaux adaptatif
 
 Saut de canaux intelligent qui se concentre sur les canaux actifs.
 
@@ -342,7 +369,7 @@ Saut de canaux intelligent qui se concentre sur les canaux actifs.
 
 ---
 
-### [22] Aide
+### [23] Aide
 
 Affiche des informations d'aide complètes sur la stack WiFi.
 
@@ -356,7 +383,7 @@ Affiche des informations d'aide complètes sur la stack WiFi.
 
 ---
 
-### [23] Redémarrer NetworkManager
+### [24] Redémarrer NetworkManager
 
 Redémarre le service NetworkManager.
 

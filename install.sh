@@ -284,12 +284,39 @@ install_all() {
   echo -e "          ${C_GOOD}${INSTALL_INSTALL_ALL_TITLE}${C_RESET}                       "
   echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
   echo ""
+  
+  local installed_count=0
+  local skipped_count=0
+  
   while IFS= read -r s; do
-    echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
-    install_stack "$s"
+    local current_version=$(get_installed_stack_version "$s")
+    local available_version=$(get_stack_version "$s")
+    
+    # Si pas installé ou version différente, installer
+    if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]] || [[ "$current_version" != "$available_version" ]]; then
+      if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]]; then
+        echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      else
+        echo -e "${C_INFO}${INSTALL_UPDATE_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET} ${C_SHADOW}($current_version → $available_version)${C_RESET}"
+      fi
+      install_stack "$s"
+      installed_count=$((installed_count + 1))
+    else
+      printf "${C_SHADOW}${INSTALL_ALREADY_UP_TO_DATE}${C_RESET}\n" "$s" "$current_version"
+      skipped_count=$((skipped_count + 1))
+    fi
   done < <(list_stacks)
+  
   echo ""
-  echo -e "${C_GOOD}${INSTALL_ALL_COMPLETE}${C_RESET}"
+  if [[ $installed_count -gt 0 ]]; then
+    printf "${C_GOOD}${INSTALL_UPDATED_COUNT}${C_RESET}\n" "$installed_count"
+  fi
+  if [[ $skipped_count -gt 0 ]]; then
+    printf "${C_INFO}${INSTALL_ALREADY_UP_TO_DATE_COUNT}${C_RESET}\n" "$skipped_count"
+  fi
+  if [[ $installed_count -eq 0 && $skipped_count -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_STACKS_TO_UPDATE}${C_RESET}"
+  fi
   echo ""
   echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
   read -r
@@ -818,39 +845,90 @@ ensure_stack_scripts_executable() {
 main_menu() {
   while true; do
     clear
-    # Affichage du banner en violet
-    echo -e "${C_ACCENT2}"
-    if [[ -f "$BANNER_FILE" ]]; then
-      cat "$BANNER_FILE"
-    else
-      echo "${INSTALL_BANNER_FALLBACK}"
-    fi
-    echo -e "${C_RESET}"
-    echo ""
     
-    echo -e "${C_ACCENT2}╔═══════════════════════════════════════════════════════════════════╗${C_RESET}"
-    printf "                ${C_GOOD}${INSTALL_MENU_TITLE}${C_RESET}                  \n" "${VERSION}"
-    echo -e "${C_ACCENT2}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}"
+    # Détecter la largeur du terminal
+    local term_width=$(tput cols 2>/dev/null || echo 80)
+    local min_width=125
+    
+    # Lire la bannière dans un tableau
+    local banner_lines=()
+    if [[ -f "$BANNER_FILE" ]]; then
+      mapfile -t banner_lines < "$BANNER_FILE"
+    else
+      banner_lines=("${INSTALL_BANNER_FALLBACK}")
+    fi
+    
+    # Préparer le menu (côté droit) - centré verticalement
+    local menu_lines=(
+      "${C_ACCENT2}╔═══════════════════════════════════════════════════════╗${C_RESET}"
+      "$(printf "  ${C_GOOD}${INSTALL_MENU_TITLE}${C_RESET}  " "${VERSION}")"
+      "${C_ACCENT2}╚═══════════════════════════════════════════════════════╝${C_RESET}"
+      ""
+      " ${C_SHADOW}${INSTALL_SECTION_INSTALL}${C_RESET}"
+      " ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${INSTALL_MENU_1}${C_RESET}"
+      " ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${INSTALL_MENU_2}${C_RESET}"
+      " ${C_HIGHLIGHT}3)${C_RESET} ${C_INFO}${INSTALL_MENU_3}${C_RESET}"
+      " ${C_HIGHLIGHT}4)${C_RESET} ${C_INFO}${INSTALL_MENU_4}${C_RESET}"
+      " ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${INSTALL_MENU_5}${C_RESET}"
+      " ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${INSTALL_MENU_6}${C_RESET}"
+      ""
+      " ${C_SHADOW}${INSTALL_SECTION_UNINSTALL}${C_RESET}"
+      " ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${INSTALL_MENU_7}${C_RESET}"
+      " ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${INSTALL_MENU_8}${C_RESET}"
+      " ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${INSTALL_MENU_9}${C_RESET}"
+      ""
+      " ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
+      " ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
+      " ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
+      ""
+      " ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
+    )
+    
+    # Affichage adaptatif selon la largeur du terminal
+    if [[ $term_width -lt $min_width ]]; then
+      # Mode vertical : bannière au-dessus, menu en dessous
+      echo -e "${C_ACCENT2}"
+      for line in "${banner_lines[@]}"; do
+        echo "$line"
+      done
+      echo -e "${C_RESET}"
+      echo ""
+      for line in "${menu_lines[@]}"; do
+        echo -e "$line"
+      done
+      echo ""
+      echo -e "${C_ACCENT2}$(printf '═%.0s' {1..60})${C_RESET}"
+    else
+      # Mode horizontal : bannière à gauche, menu à droite
+      local max_lines=${#banner_lines[@]}
+      if [[ ${#menu_lines[@]} -gt $max_lines ]]; then
+        max_lines=${#menu_lines[@]}
+      fi
+      
+      for ((i=0; i<max_lines; i++)); do
+        # Ligne de bannière (en violet)
+        if [[ $i -lt ${#banner_lines[@]} ]]; then
+          echo -ne "${C_ACCENT2}${banner_lines[$i]}${C_RESET}"
+        else
+          printf "%80s" ""
+        fi
+        
+        # Espacement entre bannière et menu
+        echo -n "  "
+        
+        # Ligne de menu
+        if [[ $i -lt ${#menu_lines[@]} ]]; then
+          echo -e "${menu_lines[$i]}"
+        else
+          echo ""
+        fi
+      done
+      
+      echo ""
+      echo -e "${C_ACCENT2}$(printf '═%.0s' {1..123})${C_RESET}"
+    fi
+    
     echo ""
-    echo -e "   ${C_SHADOW}${INSTALL_SECTION_INSTALL}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${INSTALL_MENU_1}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${INSTALL_MENU_2}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}3)${C_RESET} ${C_INFO}${INSTALL_MENU_3}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}4)${C_RESET} ${C_INFO}${INSTALL_MENU_4}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${INSTALL_MENU_5}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${INSTALL_MENU_6}${C_RESET}"
-    echo ""
-    echo -e "   ${C_SHADOW}${INSTALL_SECTION_UNINSTALL}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${INSTALL_MENU_7}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${INSTALL_MENU_8}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${INSTALL_MENU_9}${C_RESET}"
-    echo ""
-    echo -e "   ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
-    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
-    echo ""
-    echo -e "   ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
-    echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
     echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
     read -r choice
 

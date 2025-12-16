@@ -121,9 +121,21 @@ Launches bettercap for WiFi reconnaissance.
 
 ---
 
-## Attacks
+### [8] PMF Scanner (Protected Management Frames)
 
-### [8] Deauth attack (aireplay-ng)
+Scans WiFi networks to detect if PMF (Protected Management Frames) is enabled.
+
+**What it does:**
+- Uses the integrated `pmf_scanner.py` script
+- Scans all available WiFi networks
+- Displays the status of PMF for each network
+- Displays ESSID, BSSID, and PMF status (Required, Optional, Disabled)
+
+**Use case:** Identify networks vulnerable to deauthentication attacks (PMF disabled) or those protected against such attacks (PMF enabled).
+
+---
+
+### [9] Deauth attack (aireplay-ng)
 
 Performs deauthentication attacks to disconnect clients from an access point.
 
@@ -141,7 +153,7 @@ Performs deauthentication attacks to disconnect clients from an access point.
 
 ---
 
-### [9] WPS attack (reaver, bully, pixie dust)
+### [10] WPS attack (reaver, bully, pixie dust)
 
 Attempts to crack WPS PIN to recover the WiFi password.
 
@@ -158,7 +170,7 @@ Attempts to crack WPS PIN to recover the WiFi password.
 
 ---
 
-### [10] Capture handshake
+### [11] Capture handshake
 
 Captures WPA/WPA2 4-way handshakes for offline cracking.
 
@@ -177,7 +189,7 @@ Captures WPA/WPA2 4-way handshakes for offline cracking.
 
 ## Cracking
 
-### [11] Crack with aircrack-ng
+### [12] Crack with aircrack-ng
 
 Cracks captured handshakes using aircrack-ng and a wordlist.
 
@@ -192,7 +204,7 @@ Cracks captured handshakes using aircrack-ng and a wordlist.
 
 ---
 
-### [12] Crack with hashcat
+### [13] Crack with hashcat
 
 Cracks handshakes using hashcat (GPU-accelerated).
 
@@ -209,7 +221,7 @@ Cracks handshakes using hashcat (GPU-accelerated).
 
 ---
 
-### [13] Convert handshake to hashcat format
+### [14] Convert handshake to hashcat format
 
 Converts .cap files to hashcat-compatible .hc22000 format.
 
@@ -223,7 +235,7 @@ Converts .cap files to hashcat-compatible .hc22000 format.
 
 ---
 
-### [14] Auto-capture (handshake/PMKID)
+### [15] Auto-capture (handshake/PMKID)
 
 Automatically captures handshakes and PMKID using hcxdumptool.
 
@@ -240,7 +252,7 @@ Automatically captures handshakes and PMKID using hcxdumptool.
 
 ---
 
-### [15] Capture PMKID (hcxdumptool)
+### [16] Capture PMKID (hcxdumptool)
 
 Specifically captures PMKID from access points.
 
@@ -256,7 +268,7 @@ Specifically captures PMKID from access points.
 
 ---
 
-### [16] Session management (start/end)
+### [17] Session management (start/end)
 
 Manages capture sessions for better organization.
 
@@ -269,7 +281,7 @@ Manages capture sessions for better organization.
 
 ---
 
-### [17] Select target (TUI)
+### [18] Select target (TUI)
 
 Interactive target selection using fzf (fuzzy finder).
 
@@ -285,7 +297,7 @@ Interactive target selection using fzf (fuzzy finder).
 
 ---
 
-### [18] Bruteforce
+### [19] Bruteforce
 
 Performs mask-based bruteforce attacks with hashcat.
 
@@ -302,7 +314,7 @@ Performs mask-based bruteforce attacks with hashcat.
 
 ---
 
-### [19] Random MAC address
+### [20] Random MAC address
 
 Changes the MAC address of the selected interface.
 
@@ -315,7 +327,7 @@ Changes the MAC address of the selected interface.
 
 ---
 
-### [20] Cleanup old captures
+### [21] Cleanup old captures
 
 Removes old capture files to free disk space.
 
@@ -329,7 +341,7 @@ Removes old capture files to free disk space.
 
 ---
 
-### [21] Adaptive channel hopping
+### [22] Adaptive channel hopping
 
 Smart channel hopping that focuses on active channels.
 
@@ -342,7 +354,7 @@ Smart channel hopping that focuses on active channels.
 
 ---
 
-### [22] Help
+### [23] Help
 
 Displays comprehensive help information about the WiFi stack.
 
@@ -356,7 +368,7 @@ Displays comprehensive help information about the WiFi stack.
 
 ---
 
-### [23] Restart NetworkManager
+### [24] Restart NetworkManager
 
 Restarts NetworkManager service.
 

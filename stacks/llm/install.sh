@@ -8,6 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MODELS_SOURCE_DIR="$ROOT_DIR/lib/models"
 
+# Charger les bibliothèques communes et i18n
+source "$ROOT_DIR/lib/common.sh"
+source "$ROOT_DIR/lib/i18n.sh"
+
 echo "[LLM] Installation de la stack LLM..."
 
 # Créer les répertoires nécessaires

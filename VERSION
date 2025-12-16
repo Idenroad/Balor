@@ -1,12 +1,12 @@
 # Balor System Version
-0.8.3
+0.8.9
 
 # Stacks Versions
-framework:1.0
+framework:1.1
 llm:0.8
 networkscan:1.0
 osint:1.0
 password:1.0
-remoteaccess:1.0
+remoteaccess:1.1
 webexploit:1.0
-wifi:1.0
+wifi:1.2

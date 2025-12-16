@@ -1566,3 +1566,30 @@ LLM_CONVERSATIONS="Saved conversations:"
 LLM_NO_CONVERSATIONS="No conversations"
 LLM_ANALYSES="Log analyses:"
 LLM_NO_ANALYSES="No analyses"
+
+# ==============================================================================
+# REMOTEACCESS STACK
+# ==============================================================================
+
+# Menu and sections
+REMOTEACCESS_MENU_TITLE="🔐 Remote Access Stack - balorsh"
+REMOTEACCESS_MENU_SECTION_CONNECT="──── Remote Connections ────"
+REMOTEACCESS_MENU_SECTION_DISCOVERY="──── Discovery ────"
+REMOTEACCESS_MENU_SECTION_UTILS="──── Utilities ────"
+
+# Menu options
+REMOTEACCESS_MENU_1="SSH Connection"
+REMOTEACCESS_MENU_2="RDP Connection"
+REMOTEACCESS_MENU_3="Open Remmina"
+REMOTEACCESS_MENU_4="Samba/SMB Connection"
+REMOTEACCESS_MENU_5="NFS Mount"
+REMOTEACCESS_MENU_6="Scan remote access services"
+REMOTEACCESS_MENU_7="List Samba shares"
+REMOTEACCESS_MENU_8="List NFS exports"
+REMOTEACCESS_MENU_9="Cleanup old files"
+REMOTEACCESS_MENU_10="Help"
+REMOTEACCESS_MENU_0="Return to main menu"
+
+# Common messages
+REMOTEACCESS_INVALID_CHOICE="Invalid choice"
+REMOTEACCESS_PRESS_ENTER="Press [Enter] to continue..."

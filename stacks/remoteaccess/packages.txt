@@ -1,5 +1,5 @@
 # Remote Stack - Balor
-#stack 1.0
+#stack 1.1
 
 pacman:openssh
 pacman:freerdp
@@ -8,4 +8,5 @@ pacman:smbclient
 pacman:rpcbind
 pacman:nfs-utils
 pacman:remmina
+pacman:sshpass
 aur:remmina-plugin-teamviewer

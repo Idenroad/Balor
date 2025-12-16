@@ -1563,4 +1563,30 @@ LLM_CONVERSATIONS="Conversations sauvegardées:"
 LLM_NO_CONVERSATIONS="Aucune conversation"
 LLM_ANALYSES="Analyses de logs:"
 LLM_NO_ANALYSES="Aucune analyse"
-LLM_NO_ANALYSES="Aucune analyse"
+
+# ==============================================================================
+# REMOTEACCESS STACK
+# ==============================================================================
+
+# Menu et sections
+REMOTEACCESS_MENU_TITLE="🔐 Remote Access Stack - balorsh"
+REMOTEACCESS_MENU_SECTION_CONNECT="──── Connexions à distance ────"
+REMOTEACCESS_MENU_SECTION_DISCOVERY="──── Découverte ────"
+REMOTEACCESS_MENU_SECTION_UTILS="──── Utilitaires ────"
+
+# Options du menu
+REMOTEACCESS_MENU_1="Connexion SSH"
+REMOTEACCESS_MENU_2="Connexion RDP"
+REMOTEACCESS_MENU_3="Ouvrir Remmina"
+REMOTEACCESS_MENU_4="Connexion Samba/SMB"
+REMOTEACCESS_MENU_5="Montage NFS"
+REMOTEACCESS_MENU_6="Scanner services remote access"
+REMOTEACCESS_MENU_7="Lister partages Samba"
+REMOTEACCESS_MENU_8="Lister exports NFS"
+REMOTEACCESS_MENU_9="Nettoyage fichiers anciens"
+REMOTEACCESS_MENU_10="Aide"
+REMOTEACCESS_MENU_0="Retour au menu principal"
+
+# Messages communs
+REMOTEACCESS_INVALID_CHOICE="Choix invalide"
+REMOTEACCESS_PRESS_ENTER="Appuyez sur [Entrée] pour continuer..."

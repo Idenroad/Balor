@@ -1,5 +1,5 @@
 # WiFi stack Balor
-#stack 1.0
+#stack 1.
 pacman:aircrack-ng
 pacman:hostapd
 pacman:dnsmasq
@@ -14,6 +14,7 @@ pacman:bully
 pacman:wifite
 pacman:fzf
 pacman:macchanger
+pacman:bettercap-caplets
 
 aur:airgeddon
 aur:hcxdumptool
