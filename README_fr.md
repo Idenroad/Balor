@@ -92,6 +92,7 @@ L'idée de la **Legion** : un ensemble d'outils choisis, testés, intégrés, pl
   - peut être installée ou supprimée sans casser le reste.
 
 <br>
+
 <img width="590" height="753" alt="Copie d&#39;écran_20251214_185152" src="https://github.com/user-attachments/assets/15592244-d438-4192-9fd7-27452a49ee5b" />
 
 
@@ -163,8 +164,8 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 
 **Exemples d’usage :**
 
-- `roguehostapd` : création d’AP rogue / evil twin.
-- `wifiphisher` : captive portal, phishing WiFi.
+- `roguehostapd` : création d'AP rogue / evil twin (fork modifié mis à jour vers hostapd 2.11 avec support WPA3 - [Idenroad/roguehostapd](https://github.com/Idenroad/roguehostapd)).
+- `wifiphisher` : captive portal, phishing WiFi (fork modifié - [Idenroad/Wifiphisher](https://github.com/Idenroad/Wifiphisher)).
 
 ---
 

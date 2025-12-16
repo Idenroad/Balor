@@ -27,7 +27,7 @@ uninstall_wifiphisher() {
   printf "$WIFI_UNINSTALL_DONE\n" "wifiphisher"
 }
 
-uninstall_roguehostapd_python() {
+uninstall_roguehostapd() {
   echo "$WIFI_UNINSTALL_ROGUEHOSTAPD"
 
   # 1) Supprimer le repo Git /opt/roguehostapd
@@ -54,7 +54,7 @@ uninstall_roguehostapd_python() {
     fi
   done
 
-  printf "$WIFI_UNINSTALL_DONE\n" "roguehostapd (module Python)"
+  printf "$WIFI_UNINSTALL_DONE\n" "roguehostapd"
 }
 
 echo "$WIFI_UNINSTALL_REMOVING"
@@ -66,14 +66,10 @@ AUR_PKGS="${PKGS_RAW#*|}"
 # 1) Désinstaller wifiphisher (avant les dépendances)
 uninstall_wifiphisher
 
-# 2) Désinstaller roguehostapd Python (fork GitHub)
-uninstall_roguehostapd_python
+# 2) Désinstaller roguehostapd
+uninstall_roguehostapd
 
-# 3) Désinstaller roguehostapd (paquet pacman issu du PKGBUILD)
-printf "$WIFI_UNINSTALL_REMOVE_PIPMODULE\n" "roguehostapd"
-remove_pkg "roguehostapd"
-
-# 4) Désinstaller d'abord les paquets AUR
+# 3) Désinstaller d'abord les paquets AUR
 if [[ -n "$AUR_PKGS" ]]; then
   printf "$INSTALL_AUR_PACKAGES\n"
   for a in $AUR_PKGS; do
@@ -81,7 +77,7 @@ if [[ -n "$AUR_PKGS" ]]; then
   done
 fi
 
-# 5) Puis désinstaller les paquets pacman
+# 4) Puis désinstaller les paquets pacman
 if [[ -n "$PAC_PKGS" ]]; then
   printf "$INSTALL_PACMAN_PACKAGES\n"
   for p in $PAC_PKGS; do

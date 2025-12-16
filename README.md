@@ -164,8 +164,8 @@ Inspiration and improvements: the design borrows ideas from [NETREAPER](https://
 
 **Use cases:**
 
-- `roguehostapd`: rogue AP / evil twin.
-- `wifiphisher`: captive portal, WiFi phishing.
+- `roguehostapd`: rogue AP / evil twin (modified fork upgraded to hostapd 2.11 with WPA3 support - [Idenroad/roguehostapd](https://github.com/Idenroad/roguehostapd)).
+- `wifiphisher`: captive portal, WiFi phishing (modified fork - [Idenroad/Wifiphisher](https://github.com/Idenroad/Wifiphisher)).
 
 ---
 

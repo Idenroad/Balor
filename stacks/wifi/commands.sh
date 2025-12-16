@@ -471,6 +471,70 @@ wifi_bettercap() {
   sudo bettercap -iface "$iface" -eval "set wifi.recon.channel_hop true; wifi.recon on; set ticker.commands 'wifi.show'; ticker on"
 }
 
+# Scan PMF (Protected Management Frames)
+wifi_scan_pmf() {
+  clear
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "${C_GOOD}${WIFI_PMF_SCAN_TITLE}${C_RESET}"
+  echo -e "${C_ACCENT1}═══════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  # Vérifier que le script existe
+  local pmf_script="$SCRIPT_DIR/scripts/pmf_scanner.py"
+  if [[ ! -f "$pmf_script" ]]; then
+    echo -e "${C_RED}${WIFI_PMF_SCRIPT_NOT_FOUND}${C_RESET}"
+    echo -e "${C_INFO}${WIFI_PMF_SCRIPT_EXPECTED}: $pmf_script${C_RESET}"
+    return 1
+  fi
+  
+  # Lister les interfaces WiFi disponibles
+  echo -e "${C_HIGHLIGHT}${WIFI_AVAILABLE_IFACES}${C_RESET}"
+  local ifs
+  ifs=($(wifi_list_ifaces))
+  if (( ${#ifs[@]} == 0 )); then
+    echo -e "${C_RED}${WIFI_NO_IFACE_DETECTED}${C_RESET}"
+    return 1
+  fi
+  
+  # Afficher les interfaces avec numéros
+  local idx=1
+  for iface in "${ifs[@]}"; do
+    echo -e "  ${C_HIGHLIGHT}$idx)${C_RESET} ${C_INFO}$iface${C_RESET}"
+    ((idx++))
+  done
+  echo ""
+  
+  # Demander la sélection
+  echo -ne "${C_ACCENT1}${WIFI_SELECT_IFACE_NUMBER} [1]: ${C_RESET}"
+  read -r choice
+  choice="${choice:-1}"
+  
+  # Validation
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#ifs[@]} )); then
+    echo -e "${C_RED}${WIFI_INVALID_CHOICE}${C_RESET}"
+    return 1
+  fi
+  
+  local selected_iface="${ifs[$((choice-1))]}"
+  
+  echo ""
+  echo -e "${C_INFO}${WIFI_PMF_SCANNING_ON} $selected_iface...${C_RESET}"
+  echo -e "${C_SHADOW}${WIFI_PMF_PLEASE_WAIT}${C_RESET}"
+  echo ""
+  
+  # Sauvegarder la sortie
+  : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
+  local scan_dir="$BALORSH_DATA_DIR/wifi/pmf_scans"
+  mkdir -p "$scan_dir"
+  local outfile="$scan_dir/pmf_scan_$(date +%Y%m%d_%H%M%S).txt"
+  
+  # Lancer le scan
+  sudo python3 "$pmf_script" -i "$selected_iface" 2>&1 | tee "$outfile"
+  
+  echo ""
+  echo -e "${C_GOOD}${WIFI_PMF_SCAN_SAVED}: $outfile${C_RESET}"
+}
+
 # Attaque deauth avec aireplay-ng
 wifi_aireplay_deauth() {
   clear
@@ -1775,26 +1839,27 @@ stack_menu() {
     echo -e "   ${C_HIGHLIGHT}5)${C_RESET} ${C_INFO}${WIFI_MENU_5}${C_RESET}                                    "
     echo -e "   ${C_HIGHLIGHT}6)${C_RESET} ${C_INFO}${WIFI_MENU_6}${C_RESET}                              "
     echo -e "   ${C_HIGHLIGHT}7)${C_RESET} ${C_INFO}${WIFI_MENU_7}${C_RESET}                                   "
+    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${WIFI_MENU_8}${C_RESET}                                   "
     echo -e "                                                                   "
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_ATTACKS}${C_RESET}                                             "
-    echo -e "   ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${WIFI_MENU_8}${C_RESET}                               "
-    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${WIFI_MENU_9}${C_RESET}                   "
-    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${WIFI_MENU_10}${C_RESET}                                        "
+    echo -e "   ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${WIFI_MENU_9}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${WIFI_MENU_10}${C_RESET}                   "
+    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${WIFI_MENU_11}${C_RESET}                                        "
     echo -e "                                                                   "
     echo -e "   ${C_SHADOW}${WIFI_MENU_SECTION_CRACKING}${C_RESET}                                            "
-    echo -e "   ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${WIFI_MENU_11}${C_RESET}                                   "
-    echo -e "   ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${WIFI_MENU_12}${C_RESET}                                       "
-    echo -e "   ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${WIFI_MENU_13}${C_RESET}                             "
-    echo -e "   ${C_HIGHLIGHT}14)${C_RESET} ${C_INFO}${WIFI_MENU_14}${C_RESET}                           "
-    echo -e "   ${C_HIGHLIGHT}15)${C_RESET} ${C_INFO}${WIFI_MENU_15}${C_RESET}                               "
-    echo -e "   ${C_HIGHLIGHT}16)${C_RESET} ${C_INFO}${WIFI_MENU_16}${C_RESET}                       "
-    echo -e "   ${C_HIGHLIGHT}17)${C_RESET} ${C_INFO}${WIFI_MENU_17}${C_RESET}                               "
-    echo -e "   ${C_HIGHLIGHT}18)${C_RESET} ${C_INFO}${WIFI_MENU_18}${C_RESET}                                   "
-    echo -e "   ${C_HIGHLIGHT}19)${C_RESET} ${C_INFO}${WIFI_MENU_19}${C_RESET}                                           "
-    echo -e "   ${C_HIGHLIGHT}20)${C_RESET} ${C_INFO}${WIFI_MENU_20}${C_RESET}             "
-    echo -e "   ${C_HIGHLIGHT}21)${C_RESET} ${C_INFO}${WIFI_MENU_21}${C_RESET}                                  "
-    echo -e "   ${C_HIGHLIGHT}22)${C_RESET} ${C_INFO}${WIFI_MENU_22}${C_RESET}                        "
-    echo -e "   ${C_HIGHLIGHT}23)${C_RESET} ${C_INFO}${WIFI_MENU_23}${C_RESET}                                 "
+    echo -e "   ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${WIFI_MENU_12}${C_RESET}                                   "
+    echo -e "   ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${WIFI_MENU_13}${C_RESET}                                       "
+    echo -e "   ${C_HIGHLIGHT}14)${C_RESET} ${C_INFO}${WIFI_MENU_14}${C_RESET}                             "
+    echo -e "   ${C_HIGHLIGHT}15)${C_RESET} ${C_INFO}${WIFI_MENU_15}${C_RESET}                           "
+    echo -e "   ${C_HIGHLIGHT}16)${C_RESET} ${C_INFO}${WIFI_MENU_16}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}17)${C_RESET} ${C_INFO}${WIFI_MENU_17}${C_RESET}                       "
+    echo -e "   ${C_HIGHLIGHT}18)${C_RESET} ${C_INFO}${WIFI_MENU_18}${C_RESET}                               "
+    echo -e "   ${C_HIGHLIGHT}19)${C_RESET} ${C_INFO}${WIFI_MENU_19}${C_RESET}                                   "
+    echo -e "   ${C_HIGHLIGHT}20)${C_RESET} ${C_INFO}${WIFI_MENU_20}${C_RESET}                                           "
+    echo -e "   ${C_HIGHLIGHT}21)${C_RESET} ${C_INFO}${WIFI_MENU_21}${C_RESET}             "
+    echo -e "   ${C_HIGHLIGHT}22)${C_RESET} ${C_INFO}${WIFI_MENU_22}${C_RESET}                                  "
+    echo -e "   ${C_HIGHLIGHT}23)${C_RESET} ${C_INFO}${WIFI_MENU_23}${C_RESET}                        "
+    echo -e "   ${C_HIGHLIGHT}24)${C_RESET} ${C_INFO}${WIFI_MENU_24}${C_RESET}                                 "
     echo -e "                                                                   "
     echo -e "   ${C_RED}0)${C_RESET} ${C_RED}${WIFI_MENU_0}${C_RESET}                                                  "
     echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
@@ -1809,26 +1874,27 @@ stack_menu() {
       5) wifi_airodump ;;
       6) wifi_wifite ;;
       7) wifi_bettercap ;;
-      8) wifi_aireplay_deauth ;;
-      9) wifi_wps_attack ;;
-      10) wifi_capture_handshake ;;
-      11) wifi_crack_aircrack ;;
-      12) wifi_crack_hashcat ;;
-      13) wifi_convert_handshake ;;
-      14) wifi_auto_handshake ;;
-      15) wifi_capture_pmkid ;;
-      16)
+      8) wifi_scan_pmf ;;
+      9) wifi_aireplay_deauth ;;
+      10) wifi_wps_attack ;;
+      11) wifi_capture_handshake ;;
+      12) wifi_crack_aircrack ;;
+      13) wifi_crack_hashcat ;;
+      14) wifi_convert_handshake ;;
+      15) wifi_auto_handshake ;;
+      16) wifi_capture_pmkid ;;
+      17)
         echo "$WIFI_START_SESSION_END_SESSION"
         read -r schoice
         if [[ "$schoice" == "1" ]]; then wifi_start_session; elif [[ "$schoice" == "2" ]]; then wifi_end_session; else echo "$WIFI_CHOICE_INVALID"; fi
         ;;
-      17) wifi_select_target_tui ;;
-      18) wifi_bruteforce ;;
-      19) wifi_random_mac ;;
-      20) wifi_cleanup ;;
-      21) wifi_select_iface && wifi_channel_hop_adaptive "$IFACE" ;;
-      22) wifi_help ;;
-      23) wifi_restart_networkmanager ;;
+      18) wifi_select_target_tui ;;
+      19) wifi_bruteforce ;;
+      20) wifi_random_mac ;;
+      21) wifi_cleanup ;;
+      22) wifi_select_iface && wifi_channel_hop_adaptive "$IFACE" ;;
+      23) wifi_help ;;
+      24) wifi_restart_networkmanager ;;
       0) echo "$WIFI_GOODBYE"; break ;;
       *) echo -e "${C_RED}${WIFI_INVALID_CHOICE}${C_RESET}" ;;
     esac
