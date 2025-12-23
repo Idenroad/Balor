@@ -11,6 +11,16 @@ ROGUEHOSTAPD_DIR="/opt/roguehostapd"
 uninstall_wifiphisher() {
   echo "$WIFI_UNINSTALL_WIFIPHISHER"
 
+  # Désinstaller le module Python installé via pip
+  printf "$WIFI_UNINSTALL_REMOVE_PIPMODULE\n" "wifiphisher"
+  # Utiliser python3 -m pip pour cibler correctement l'environnement Python3
+  if sudo python3 -m pip uninstall -y wifiphisher >/dev/null 2>&1; then
+    true
+  else
+    # Fallback to legacy pip if present
+    sudo pip uninstall -y wifiphisher >/dev/null 2>&1 || printf "$WIFI_UNINSTALL_PIPMODULE_NOT_INSTALLED\n" "wifiphisher"
+  fi
+
   if [[ -d "$WIFIPHISHER_DIR" ]]; then
     printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$WIFIPHISHER_DIR"
     sudo rm -rf "$WIFIPHISHER_DIR"
@@ -19,10 +29,20 @@ uninstall_wifiphisher() {
   fi
 
   # Nettoyage du binaire wrapper s'il existe
-  if [[ -f /usr/bin/wifiphisher ]]; then
-    printf "$WIFI_UNINSTALL_REMOVE_BIN\n" "/usr/bin/wifiphisher"
-    sudo rm -f /usr/bin/wifiphisher
-  fi
+  for binpath in /usr/bin/wifiphisher /usr/local/bin/wifiphisher; do
+    if [[ -f "$binpath" ]]; then
+      printf "$WIFI_UNINSTALL_REMOVE_BIN\n" "$binpath"
+      sudo rm -f "$binpath"
+    fi
+  done
+
+  # Supprimer les traces dans site-packages (divers emplacements possibles)
+  for site in /usr/lib/python*/site-packages /usr/local/lib/python*/site-packages /usr/lib/python*/dist-packages /usr/local/lib/python*/dist-packages; do
+    if compgen -G "$site/wifiphisher*" >/dev/null 2>&1; then
+      printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$site/wifiphisher*"
+      sudo rm -rf $site/wifiphisher*
+    fi
+  done
 
   printf "$WIFI_UNINSTALL_DONE\n" "wifiphisher"
 }
@@ -30,7 +50,15 @@ uninstall_wifiphisher() {
 uninstall_roguehostapd() {
   echo "$WIFI_UNINSTALL_ROGUEHOSTAPD"
 
-  # 1) Supprimer le repo Git /opt/roguehostapd
+  # Désinstaller le module Python installé via pip
+  printf "$WIFI_UNINSTALL_REMOVE_PIPMODULE\n" "roguehostapd"
+  if sudo python3 -m pip uninstall -y roguehostapd >/dev/null 2>&1; then
+    true
+  else
+    sudo pip uninstall -y roguehostapd >/dev/null 2>&1 || printf "$WIFI_UNINSTALL_PIPMODULE_NOT_INSTALLED\n" "roguehostapd"
+  fi
+
+  # 1) Supprimer le repo Git /opt/roguehostapd s'il existe
   if [[ -d "$ROGUEHOSTAPD_DIR" ]]; then
     printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$ROGUEHOSTAPD_DIR"
     sudo rm -rf "$ROGUEHOSTAPD_DIR"
@@ -38,19 +66,19 @@ uninstall_roguehostapd() {
     printf "$WIFI_UNINSTALL_SKIP_DIR\n" "$ROGUEHOSTAPD_DIR"
   fi
 
-  # 2) Essayer de supprimer le module Python de site-packages (best effort)
-  # On vise Python 3.13 + peut-être d'autres versions installées.
-  for ver in 3.13 3.12 3.11; do
-    site="/usr/lib/python${ver}/site-packages"
-    if [[ -d "${site}" ]]; then
-      if [[ -d "${site}/roguehostapd" ]]; then
-        printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "${site}/roguehostapd"
-        sudo rm -rf "${site}/roguehostapd"
-      fi
-      if compgen -G "${site}/roguehostapd*.egg-info" >/dev/null 2>&1; then
-        printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "${site}/roguehostapd*.egg-info"
-        sudo rm -rf "${site}/roguehostapd"*.egg-info
-      fi
+  # 2) Supprimer les traces dans site-packages / dist-packages (best-effort)
+  for site in /usr/lib/python*/site-packages /usr/local/lib/python*/site-packages /usr/lib/python*/dist-packages /usr/local/lib/python*/dist-packages; do
+    if compgen -G "$site/roguehostapd*" >/dev/null 2>&1; then
+      printf "$WIFI_UNINSTALL_REMOVE_DIR\n" "$site/roguehostapd*"
+      sudo rm -rf $site/roguehostapd*
+    fi
+  done
+
+  # Supprimer potentiels binaires installés
+  for binpath in /usr/bin/roguehostapd /usr/local/bin/roguehostapd; do
+    if [[ -f "$binpath" ]]; then
+      printf "$WIFI_UNINSTALL_REMOVE_BIN\n" "$binpath"
+      sudo rm -f "$binpath"
     fi
   done
 

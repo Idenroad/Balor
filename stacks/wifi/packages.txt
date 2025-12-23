@@ -1,21 +1,19 @@
 # WiFi stack Balor
-#stack 1.
+#stack 1.3
+
+aur:mdk3
+pacman:mdk4
+pacman:wifite
 pacman:aircrack-ng
 pacman:hostapd
 pacman:dnsmasq
 pacman:bettercap
 pacman:wireshark-qt
-pacman:git
-pacman:python
-pacman:python-pip
 pacman:scapy
 pacman:python-tornado
 pacman:bully
-pacman:wifite
-pacman:fzf
 pacman:macchanger
 pacman:bettercap-caplets
-
 aur:airgeddon
 aur:hcxdumptool
 aur:hcxtools

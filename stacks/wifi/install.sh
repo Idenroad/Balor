@@ -5,33 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$SCRIPT_DIR/../../lib/common.sh"
 
-ROGUEHOSTAPD_DIR="/opt/roguehostapd"
-WIFIPHISHER_DIR="/opt/wifiphisher"
-
 install_roguehostapd() {
   echo "$WIFI_INSTALL_ROGUEHOSTAPD_PYTHON"
 
-  # Dépendances
-  install_pacman_pkg git
-  install_pacman_pkg python
-  install_pacman_pkg python-setuptools
-
-  # Cloner ou mettre à jour le fork Idenroad
-  if [[ -d "$ROGUEHOSTAPD_DIR/.git" ]]; then
-    echo "  $WIFI_ROGUEHOSTAPD_UPDATE"
-    sudo git -C "$ROGUEHOSTAPD_DIR" pull --rebase
-  else
-    echo "  $WIFI_ROGUEHOSTAPD_CLONE"
-    sudo git clone https://github.com/Idenroad/roguehostapd.git "$ROGUEHOSTAPD_DIR"
-  fi
-
+  # Nettoyer le cache pip et installer via pip depuis git
   echo "  $WIFI_SETUP_PYTHON"
-  local py="python3"
-  command -v python3 >/dev/null 2>&1 || py="python"
-
-  cd "$ROGUEHOSTAPD_DIR"
-  sudo "$py" setup.py install
-  cd - >/dev/null
+  # S'assurer que argparse est disponible pour l'environnement Python3 utilisé
+  if ! python3 -c "import argparse" >/dev/null 2>&1; then
+    echo "  Installation d'argparse pour Python3..."
+    sudo python3 -m pip install --break-system-packages --no-cache-dir argparse || true
+  fi
+  sudo python3 -m pip cache purge || true
+  sudo python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall git+https://github.com/Idenroad/roguehostapd.git
 
   echo "$WIFI_ROGUEHOSTAPD_PYTHON_INSTALLED"
 }
@@ -39,35 +24,15 @@ install_roguehostapd() {
 install_wifiphisher() {
   echo "$WIFI_INSTALL_WIFIPHISHER"
 
-  # Vérifier Python
-  if ! command -v python >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
-    echo "  $WIFI_PYTHON_NOT_DETECTED"
-    install_pacman_pkg python
-  fi
-
-  # Vérifier git
-  if ! command -v git >/dev/null 2>&1; then
-    echo "  $WIFI_GIT_NOT_DETECTED"
-    install_pacman_pkg git
-  fi
-
-  # Cloner ou mettre à jour le fork Idenroad
-  if [[ -d "$WIFIPHISHER_DIR/.git" ]]; then
-    echo "  $WIFI_WIFIPHISHER_UPDATE"
-    sudo git -C "$WIFIPHISHER_DIR" pull --rebase
-  else
-    echo "  $WIFI_WIFIPHISHER_CLONE"
-    sudo git clone https://github.com/Idenroad/wifiphisher.git "$WIFIPHISHER_DIR"
-  fi
-
-  # Installer via setup.py
+  # Nettoyer le cache pip et installer via pip depuis git
   echo "  $WIFI_SETUP_PYTHON"
-  local py="python3"
-  command -v python3 >/dev/null 2>&1 || py="python"
-
-  cd "$WIFIPHISHER_DIR"
-  sudo "$py" setup.py install
-  cd - >/dev/null
+  # S'assurer que argparse est disponible pour l'environnement Python3 utilisé
+  if ! python3 -c "import argparse" >/dev/null 2>&1; then
+    echo "  Installation d'argparse pour Python3..."
+    sudo python3 -m pip install --break-system-packages --no-cache-dir argparse || true
+  fi
+  sudo python3 -m pip cache purge || true
+  sudo python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall git+https://github.com/Idenroad/wifiphisher.git
 
   echo "$WIFI_WIFIPHISHER_INSTALLED"
 }
