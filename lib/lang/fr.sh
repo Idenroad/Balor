@@ -23,6 +23,19 @@ MSG_PKG_INSTALLING="[INSTALL] %s (pacman)..."
 MSG_PKG_AUR_SKIP="[SKIP] %s (AUR) : paru non configuré."
 MSG_PKG_AUR_ALREADY="[OK] %s déjà installé (AUR)."
 MSG_PKG_AUR_INSTALLING="[INSTALL] %s (AUR)..."
+MSG_PKG_SKIP_SHARED="[SKIP] %s utilisé par une autre stack installée."
+
+# Vérification des packages essentiels
+MSG_ESSENTIAL_CHECK="Vérification des packages essentiels..."
+MSG_ESSENTIAL_OK="%s: OK"
+MSG_ESSENTIAL_MISSING="%s: MANQUANT - Installation..."
+MSG_ESSENTIAL_INSTALLED="%s: Installé"
+MSG_ESSENTIAL_PROTECTED="[PROTÉGÉ] %s est essentiel et ne peut pas être désinstallé."
+
+# Suppression de paquets
+MSG_PKG_REMOVING="[SUPPR] %s..."
+MSG_PKG_REMOVE_FAILED="[ATTENTION] Échec de la suppression de %s (dépendance système ?)."
+MSG_PKG_NOT_INSTALLED="[SKIP] %s non installé."
 
 # ============================================================================
 # WIFI COMMANDS.SH - Menu et commandes WiFi
@@ -215,6 +228,7 @@ INSTALL_MENU_8="Désinstaller une stack spécifique"
 INSTALL_MENU_9="Désinstaller tous les stacks"
 INSTALL_MENU_10="Mettre à jour tout (stacks + wrapper)"
 INSTALL_MENU_11="Vérifier les outils installés"
+INSTALL_MENU_12="Supprimer les paquets orphelins"
 INSTALL_MENU_0="Quitter"
 
 # Prompts
@@ -235,6 +249,9 @@ INSTALL_RETURN="Retour"
 INSTALL_UNINSTALL_ALL_TITLE="Désinstallation de TOUTES les stacks"
 INSTALL_UNINSTALL_ALL_WARNING="⚠  ATTENTION: Cette action va désinstaller TOUTES les stacks!"
 INSTALL_UNINSTALL_ALL_CONFIRM="Êtes-vous sûr? [o/N]:"
+INSTALL_UNINSTALL_ALL_DATA_PROMPT="Voulez-vous supprimer les données de toutes les stacks? [o/N]: "
+INSTALL_UNINSTALL_ALL_DATA_REMOVING="Suppression des données de toutes les stacks..."
+INSTALL_UNINSTALL_ALL_DATA_SKIPPED="Données des stacks conservées."
 INSTALL_INSTALL_EXCEPT_LLM_TITLE="Installation de toutes les stacks SAUF LLM"
 INSTALL_INSTALL_ALL_TITLE="Installation de TOUTES les stacks"
 INSTALL_UPDATE_SYSTEM_TITLE="Mise à jour système + AUR"
@@ -301,11 +318,26 @@ INSTALL_CHECK_TITLE="=== Checking tools listed in the stacks ==="
 INSTALL_CHECK_EXPECTED="Attendus:"
 INSTALL_CHECK_INSTALLED="Installés:"
 INSTALL_CHECK_MISSING="Manquants:"
+INSTALL_CHECK_DETAILS="Détails:"
+INSTALL_CHECK_SUMMARY="Résumé:"
 INSTALL_CHECK_PACMAN="Pacman:"
 INSTALL_CHECK_AUR="AUR (paru):"
 INSTALL_CHECK_GIT="Git/autres:"
 INSTALL_CHECK_INSTALLEDS=" installés,"
 INSTALL_CHECK_MISSINGS=" manquants"
+INSTALL_CHECK_TIPS="Conseils:"
+INSTALL_CHECK_TIP1="• Utilisez l'option 1 pour installer les stacks manquantes"
+INSTALL_CHECK_TIP2="• Utilisez l'option 2 pour mettre à jour le système"
+INSTALL_CHECK_TIP3="• Vérifiez les dépendances manuellement si nécessaire"
+
+# Messages suppression des paquets orphelins
+INSTALL_REMOVE_ORPHANS_TITLE="Suppression des paquets orphelins"
+INSTALL_NO_ORPHANS="Aucun paquet orphelin trouvé."
+INSTALL_ORPHANS_FOUND="Paquets orphelins trouvés:"
+INSTALL_ORPHANS_CONFIRM="Voulez-vous les supprimer? [o/N]: "
+INSTALL_ORPHANS_REMOVING="Suppression des paquets orphelins..."
+INSTALL_ORPHANS_REMOVED="Paquets orphelins supprimés avec succès."
+INSTALL_ORPHANS_FAILED="Échec de la suppression des paquets orphelins."
 
 # Messages principaux d'installation
 INSTALL_BANNER_FALLBACK="=== Balor Installer – Powered by Idenroad ==="
@@ -316,8 +348,37 @@ UNINSTALL_SCRIPT_NOT_FOUND="[!] Script de désinstallation introuvable pour: %s"
 # Messages génériques d'installation
 INSTALL_STACK_START="Installation du stack %s..."
 INSTALL_STACK_COMPLETE="✓ Stack %s installée avec succès."
-UNINSTALL_STACK_START="Désinstallation du stack %s..."
-UNINSTALL_STACK_COMPLETE="✓ Stack %s désinstallée avec succès."
+UNINSTALL_STACK_START="Démarrage de la désinstallation de %s..."
+UNINSTALL_STACK_COMPLETE="✓ Désinstallation de %s terminée avec succès."
+UNINSTALL_STACK_ERROR="✗ Erreurs lors de la désinstallation de %s (code %s):"
+UNINSTALL_DATA_DIR_PROMPT="Voulez-vous supprimer le répertoire de données de la stack %s ? [%s/%s]: "
+UNINSTALL_DATA_DIR_REMOVING="Suppression du répertoire de données %s..."
+UNINSTALL_DATA_DIR_SKIPPED="Répertoire de données conservé."
+
+# Messages d'installation forcée
+INSTALL_FORCE_INSTALL="Forcer l'installation de %s..."
+INSTALL_FORCE_FAILED="Installation forcée échouée pour %s"
+INSTALL_FAILED="Installation échouée pour %s"
+INSTALL_UNKNOWN="inconnu"
+
+# Messages de désinstallation des paquets
+INSTALL_UNINSTALLING_PACKAGES="Désinstallation des paquets..."
+
+# Messages d'échec des stacks
+INSTALL_FAILED_STACKS_REINSTALL="Les stacks suivantes n'ont pas pu être réinstallées :"
+INSTALL_FAILED_STACKS_UPDATE="Les stacks suivantes n'ont pas pu être mises à jour :"
+INSTALL_FAILED_STACKS_INSTALL="Les stacks suivantes n'ont pas pu être installées :"
+
+# Messages de mode force
+INSTALL_FORCE_MODE_ALL_EXCEPT_LLM="Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks (sauf llm)."
+INSTALL_FORCE_MODE_ALL="Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks."
+INSTALL_FORCE_MODE_UPDATE="Mode FORCER activé : tentative de réinstallation de toutes les stacks (ignore JSON)."
+INSTALL_FORCE_MODE_MISSING="Mode FORCER activé : tentative d'installation complète (y compris stacks déjà présentes)."
+INSTALL_FORCE_PROMPT_DEFAULT="Voulez-vous forcer l'installation ? [y/N]: "
+INSTALL_FORCE_PROMPT_ALL="Forcer l'installation de toutes les stacks (ignorer le JSON) ? [y/N]: "
+INSTALL_NO_JSON_FILE="Aucun fichier JSON trouvé (%s) — installation complète forcée."
+INSTALL_REMOVING_JSON_DIR="Suppression de /opt/balorsh/json..."
+INSTALL_REINSTALLING_STACK="Réinstallation de %s"
 
 # Messages de paquets
 INSTALL_PACMAN_PACKAGES="Installation des paquets pacman..."
@@ -1044,6 +1105,8 @@ INSTALL_NO_PACKAGES="Aucun paquet à installer."
 
 MSG_YES="Oui"
 MSG_NO="Non"
+MSG_YES_CHAR="o"
+MSG_NO_CHAR="N"
 MSG_CANCEL="Annuler"
 MSG_CONFIRM="Confirmer"
 MSG_ERROR="Erreur"

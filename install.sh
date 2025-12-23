@@ -9,6 +9,9 @@ VERSION="${VERSION:-$(grep -v '^#' "$BALOR_ROOT/VERSION" 2>/dev/null | grep -v '
 # shellcheck source=lib/common.sh
 source "$BALOR_ROOT/lib/common.sh"
 
+# Vérifier les packages essentiels au lancement
+check_essential_packages
+
 # Codes couleur
 C_RESET="\e[0m"
 C_BOLD="\e[1m"
@@ -66,8 +69,25 @@ get_installed_stack_version() {
   fi
   
   # Extraire la version depuis le JSON - chercher la ligne exacte avec le nom de la stack
-  local version=$(grep "\"$stack\":" "$json_file" | sed -E 's/.*"version":[[:space:]]*"([^"]+)".*/\1/')
-  
+  local json_line
+  json_line=$(grep "\"$stack\":" "$json_file" || true)
+  if [[ -z "$json_line" ]]; then
+    echo "${INSTALL_UNKNOWN}"
+    return
+  fi
+
+  # Extract installed flag (true/false) and version
+  local installed_flag
+  installed_flag=$(sed -E 's/.*"installed":[[:space:]]*(true|false).*/\1/' <<<"$json_line" 2>/dev/null || true)
+  local version
+  version=$(sed -E 's/.*"version":[[:space:]]*"([^"]+)".*/\1/' <<<"$json_line" 2>/dev/null || true)
+
+  # If the JSON says not installed, treat as unknown
+  if [[ "$installed_flag" == "false" || -z "$installed_flag" ]]; then
+    echo "${INSTALL_UNKNOWN}"
+    return
+  fi
+
   if [[ -n "$version" ]]; then
     echo "$version"
   else
@@ -142,9 +162,9 @@ install_stack() {
   local stack="$1"
   local script="$STACKS_DIR/$stack/install.sh"
   if [[ -x "$script" ]]; then
-    bash "$script" </dev/tty
-    local exit_code=$?
-    update_stacks_json
+    # Run the script and capture exit code, ignoring set -e
+    local exit_code=0
+    bash "$script" </dev/tty || exit_code=$?
     return $exit_code
   else
     printf "$INSTALL_SCRIPT_NOT_FOUND\n" "$stack"
@@ -156,7 +176,19 @@ uninstall_stack() {
   local stack="$1"
   local script="$STACKS_DIR/$stack/uninstall.sh"
   if [[ -x "$script" ]]; then
-    bash "$script"
+    printf "${C_SHADOW}${UNINSTALL_STACK_START}${C_RESET}\n" "$stack"
+    # Exécuter le script en direct pour que l'utilisateur voie la sortie en temps réel
+    set +e
+    bash "$script" </dev/tty 2>&1
+    local exit_code=$?
+    set -e
+    if [[ $exit_code -eq 0 ]]; then
+      printf "${C_GOOD}${UNINSTALL_STACK_COMPLETE}${C_RESET}\n" "$stack"
+    else
+      printf "${C_RED}${UNINSTALL_STACK_ERROR}${C_RESET}\n" "$stack"
+    fi
+    # Supprimer les données de la stack si demandé
+    remove_stack_data_dir "$stack"
     update_stacks_json
   else
     printf "$UNINSTALL_SCRIPT_NOT_FOUND\n" "$stack"
@@ -191,7 +223,19 @@ menu_install_specific() {
   local sel="${stacks[$idx]}"
 
   if [[ -n "$sel" ]]; then
-    install_stack "$sel"
+    ask_force_install "Forcer l'installation de $sel ? [y/N]: " || true
+    if [[ "$FORCE_INSTALL" -eq 1 ]]; then
+      printf "${C_YELLOW}${INSTALL_FORCE_INSTALL}${C_RESET}\n" "$sel"
+      install_stack "$sel" || echo -e "${C_RED}${INSTALL_FORCE_FAILED}${C_RESET}"
+    else
+      if install_stack "$sel"; then
+        :
+      else
+        printf "${C_RED}${INSTALL_FAILED}${C_RESET}\n" "$sel"
+      fi
+    fi
+    update_stacks_json || true
+    press_enter_if_enabled
   else
     echo "${INSTALL_INVALID_CHOICE}"
   fi
@@ -226,6 +270,8 @@ menu_uninstall() {
 
   if [[ -n "$sel" ]]; then
     uninstall_stack "$sel"
+    # Attendre que l'utilisateur lise la sortie puis appuyer sur Entrée
+    press_enter_if_enabled
   else
     echo "${INSTALL_INVALID_CHOICE}"
   fi
@@ -243,18 +289,60 @@ uninstall_all() {
   read -r confirm
   
   if [[ "$confirm" =~ ^[oOyY]$ ]]; then
+    # Demander si on supprime les données
+    echo ""
+    printf "$INSTALL_UNINSTALL_ALL_DATA_PROMPT"
+    read -r data_choice
+    if [[ "$data_choice" =~ ^[oOyY]$ ]]; then
+      export UNINSTALL_ALL_DATA=true
+      echo -e "${C_YELLOW}${INSTALL_UNINSTALL_ALL_DATA_REMOVING}${C_RESET}"
+    else
+      export UNINSTALL_ALL_DATA=false
+      echo -e "${C_INFO}${INSTALL_UNINSTALL_ALL_DATA_SKIPPED}${C_RESET}"
+    fi
+    
+    # Pour bien nettoyer les artefacts non-packagés (pip etc.),
+    # exécuter d'abord chaque script `uninstall` de stack (best-effort),
+    # puis collecter les paquets pour suppression via le gestionnaire de paquets.
+    declare -A all_pkgs_to_remove=()
     while IFS= read -r s; do
       echo -e "${C_INFO}${INSTALL_UNINSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
-      uninstall_stack "$s"
+      # Essayer d'exécuter le script de désinstallation de la stack (ne pas stopper en cas d'erreur)
+      set +e
+      uninstall_stack "$s" || true
+      set -e
+      # Lire les paquets de la stack
+      packages_data=$(read_stack_packages "$STACKS_DIR/$s")
+      IFS='|' read -r pacman_list aur_list <<< "$packages_data"
+      for pkg in $pacman_list $aur_list; do
+        if [[ -n "$pkg" ]]; then
+          all_pkgs_to_remove["$pkg"]=1
+        fi
+      done
+      # Supprimer (en complément) les données de la stack
+      remove_stack_data_dir "$s"
     done < <(list_stacks)
+    
+    # Désinstaller tous les paquets collectés (sans vérification de partage puisque tout est supprimé)
+    echo -e "${C_YELLOW}${INSTALL_UNINSTALLING_PACKAGES}${C_RESET}"
+    for pkg in "${!all_pkgs_to_remove[@]}"; do
+      if [[ " ${ESSENTIAL_PACKAGES[*]} " =~ " $pkg " ]]; then
+        printf "$MSG_PKG_SKIP_SHARED\n" "$pkg"
+      else
+        remove_pkg "$pkg"
+      fi
+    done
+    
+    # Supprimer /opt/balorsh/json
+    echo -e "${C_YELLOW}Suppression de /opt/balorsh/json...${C_RESET}"
+    sudo rm -rf /opt/balorsh/json
+    
     echo ""
     echo -e "${C_GOOD}${INSTALL_UNINSTALL_ALL_COMPLETE}${C_RESET}"
   else
     echo -e "${C_INFO}${INSTALL_CANCELLED}${C_RESET}"
   fi
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  press_enter_if_enabled
 }
 
 install_all_except_llm() {
@@ -263,19 +351,65 @@ install_all_except_llm() {
   echo -e "      ${C_GOOD}${INSTALL_INSTALL_EXCEPT_LLM_TITLE}${C_RESET}                  "
   echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
   echo ""
+  local failures=()
+  ask_force_install "Forcer l'installation de toutes les stacks (sauf llm) ? [y/N]: " || true
+
+  # Set up error handling to continue on failures
+  trap 'true' ERR
+  set +e
+
+  if [[ "$FORCE_INSTALL" -eq 1 ]]; then
+    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks (sauf llm).${C_RESET}"
+    while IFS= read -r s; do
+      if [[ "$s" != "llm" ]]; then
+        echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+        if install_stack "$s"; then
+          :
+        else
+          failures+=("$s")
+        fi
+      else
+        echo -e "${C_YELLOW}${INSTALL_LLM_IGNORED}${C_RESET}"
+      fi
+    done < <(list_stacks)
+    # Update JSON
+    update_stacks_json || true
+    echo ""
+    echo -e "${C_GOOD}${INSTALL_ALL_EXCEPT_LLM_COMPLETE}${C_RESET}"
+    if (( ${#failures[@]} > 0 )); then
+      echo -e "${C_RED}Some stacks failed to install:${C_RESET}"
+      for f in "${failures[@]}"; do echo "  - $f"; done
+    fi
+    press_enter_if_enabled
+    return
+  fi
   while IFS= read -r s; do
     if [[ "$s" != "llm" ]]; then
       echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
-      install_stack "$s"
+      if install_stack "$s"; then
+        :
+      else
+        failures+=("$s")
+      fi
     else
       echo -e "${C_YELLOW}${INSTALL_LLM_IGNORED}${C_RESET}"
     fi
   done < <(list_stacks)
+
+  # Restore error handling
+  set -e
+  trap - ERR
+
+  # Update JSON status
+  update_stacks_json || true
+
   echo ""
   echo -e "${C_GOOD}${INSTALL_ALL_EXCEPT_LLM_COMPLETE}${C_RESET}"
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  if (( ${#failures[@]} > 0 )); then
+    echo -e "${C_RED}Some stacks failed to install:${C_RESET}"
+    for f in "${failures[@]}"; do echo "  - $f"; done
+  fi
+  press_enter_if_enabled
 }
 
 install_all() {
@@ -287,27 +421,56 @@ install_all() {
   
   local installed_count=0
   local skipped_count=0
-  
-  while IFS= read -r s; do
-    local current_version=$(get_installed_stack_version "$s")
-    local available_version=$(get_stack_version "$s")
-    
-    # Si pas installé ou version différente, installer
-    if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]] || [[ "$current_version" != "$available_version" ]]; then
-      if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]]; then
-        echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+  local failures=()
+  # Prompt to force install (ignore JSON) or if JSON missing act as forced
+  ask_force_install "Forcer l'installation de toutes les stacks (ignorer le JSON) ? [y/N]: " || true
+
+  # Set up error handling to continue on failures
+  trap 'true' ERR
+  set +e
+
+  if [[ "$FORCE_INSTALL" -eq 1 ]]; then
+    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks.${C_RESET}"
+    while IFS= read -r s; do
+      echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      if install_stack "$s"; then
+        installed_count=$((installed_count + 1))
       else
-        echo -e "${C_INFO}${INSTALL_UPDATE_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET} ${C_SHADOW}($current_version → $available_version)${C_RESET}"
+        failures+=("$s")
       fi
-      install_stack "$s"
-      installed_count=$((installed_count + 1))
-    else
-      printf "${C_SHADOW}${INSTALL_ALREADY_UP_TO_DATE}${C_RESET}\n" "$s" "$current_version"
-      skipped_count=$((skipped_count + 1))
-    fi
-  done < <(list_stacks)
+    done < <(list_stacks)
+  else
+    while IFS= read -r s; do
+      local current_version=$(get_installed_stack_version "$s")
+      local available_version=$(get_stack_version "$s")
+      
+      # Si pas installé ou version différente, installer
+      if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]] || [[ "$current_version" != "$available_version" ]]; then
+        if [[ "$current_version" == "${INSTALL_UNKNOWN}" ]]; then
+          echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+        else
+          echo -e "${C_INFO}${INSTALL_UPDATE_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET} ${C_SHADOW}($current_version → $available_version)${C_RESET}"
+        fi
+        if install_stack "$s"; then
+          installed_count=$((installed_count + 1))
+        else
+          failures+=("$s")
+        fi
+      else
+        printf "${C_SHADOW}${INSTALL_ALREADY_UP_TO_DATE}${C_RESET}\n" "$s" "$current_version"
+        skipped_count=$((skipped_count + 1))
+      fi
+    done < <(list_stacks)
+  fi
+
+  # Restore error handling
+  set -e
+  trap - ERR
   
   echo ""
+  # Update JSON status
+  update_stacks_json || true
+
   if [[ $installed_count -gt 0 ]]; then
     printf "${C_GOOD}${INSTALL_UPDATED_COUNT}${C_RESET}\n" "$installed_count"
   fi
@@ -317,9 +480,46 @@ install_all() {
   if [[ $installed_count -eq 0 && $skipped_count -eq 0 ]]; then
     echo -e "${C_YELLOW}${INSTALL_NO_STACKS_TO_UPDATE}${C_RESET}"
   fi
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  if (( ${#failures[@]} > 0 )); then
+    echo ""
+    echo -e "${C_RED}The following stacks failed to install/update:${C_RESET}"
+    for f in "${failures[@]}"; do echo "  - $f"; done
+  fi
+  press_enter_if_enabled
+}
+
+# Ask user whether to force installation. If JSON is missing, behave as forced.
+ask_force_install() {
+  local prompt="$1"
+  FORCE_INSTALL=0
+  local json_file="$BALOR_OPT_ROOT/json/stacks_status.json"
+  if [[ ! -f "$json_file" ]]; then
+    echo -e "${C_YELLOW}Aucun fichier JSON trouvé ($json_file) — installation complète forcée.${C_RESET}"
+    FORCE_INSTALL=1
+    return 0
+  fi
+
+  # Default prompt if not provided
+  if [[ -z "$prompt" ]]; then
+    prompt="Voulez-vous forcer l'installation ? [y/N]: "
+  fi
+
+  printf "${C_ACCENT1}%s${C_RESET}" "$prompt"
+  if [[ -e /dev/tty ]]; then
+    IFS= read -r ans </dev/tty
+  else
+    read -r ans
+  fi
+  case "$ans" in
+    y|Y|o|O)
+      FORCE_INSTALL=1
+      return 0
+      ;;
+    *)
+      FORCE_INSTALL=0
+      return 1
+      ;;
+  esac
 }
 
 # Vérifie si une stack semble installée (heuristique basée sur /opt/balorsh/data/)
@@ -341,6 +541,33 @@ update_existing_stacks() {
   
   local updated_count=0
   local skipped_count=0
+  local failures=()
+  ask_force_install "Forcer la réinstallation des stacks existantes ? [y/N]: " || true
+
+  # Set up error handling to continue on failures
+  trap 'true' ERR
+  set +e
+
+  if [[ "$FORCE_INSTALL" -eq 1 ]]; then
+    echo -e "${C_YELLOW}Mode FORCER activé : tentative de réinstallation de toutes les stacks (ignore JSON).${C_RESET}"
+    while IFS= read -r s; do
+      echo -e "${C_INFO}Reinstalling ${C_HIGHLIGHT}$s${C_RESET}"
+      if install_stack "$s"; then
+        updated_count=$((updated_count + 1))
+      else
+        failures+=("$s")
+      fi
+    done < <(list_stacks)
+    # update json
+    update_stacks_json || true
+    echo ""
+    if (( ${#failures[@]} > 0 )); then
+      echo -e "${C_RED}The following stacks failed to reinstall:${C_RESET}"
+      for f in "${failures[@]}"; do echo "  - $f"; done
+    fi
+    press_enter_if_enabled
+    return
+  fi
   while IFS= read -r s; do
     if is_stack_installed "$s"; then
       local current_version=$(get_installed_stack_version "$s")
@@ -351,7 +578,7 @@ update_existing_stacks() {
         if install_stack "$s"; then
           updated_count=$((updated_count + 1))
         else
-          printf "${C_RED}${INSTALL_UPDATE_FAILED}${C_RESET}\n" "$s"
+          failures+=("$s")
         fi
       else
         printf "${C_SHADOW}${INSTALL_ALREADY_UP_TO_DATE}${C_RESET}\n" "$s" "$current_version"
@@ -361,6 +588,10 @@ update_existing_stacks() {
       printf "${C_SHADOW}${INSTALL_NOT_INSTALLED_IGNORED}${C_RESET}\n" "$s"
     fi
   done < <(list_stacks)
+
+  # Restore error handling
+  set -e
+  trap - ERR
   
   echo ""
   if [[ $updated_count -gt 0 ]]; then
@@ -372,9 +603,12 @@ update_existing_stacks() {
   if [[ $updated_count -eq 0 && $skipped_count -eq 0 ]]; then
     echo -e "${C_YELLOW}${INSTALL_NO_STACKS_TO_UPDATE}${C_RESET}"
   fi
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  if (( ${#failures[@]} > 0 )); then
+    echo ""
+    echo -e "${C_RED}The following stacks failed to update:${C_RESET}"
+    for f in "${failures[@]}"; do echo "  - $f"; done
+  fi
+  press_enter_if_enabled
 }
 
 install_missing_stacks() {
@@ -385,15 +619,49 @@ install_missing_stacks() {
   echo ""
   
   local installed_count=0
+  local failures=()
+  ask_force_install "Forcer l'installation des stacks manquantes ? [y/N]: " || true
+
+  # Set up error handling to continue on failures
+  trap 'true' ERR
+  set +e
+
+  if [[ "$FORCE_INSTALL" -eq 1 ]]; then
+    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation complète (y compris stacks déjà présentes).${C_RESET}"
+    while IFS= read -r s; do
+      echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
+      if install_stack "$s"; then
+        installed_count=$((installed_count + 1))
+      else
+        failures+=("$s")
+      fi
+    done < <(list_stacks)
+    # Update JSON
+    update_stacks_json || true
+    if (( ${#failures[@]} > 0 )); then
+      echo ""
+      echo -e "${C_RED}The following stacks failed to install:${C_RESET}"
+      for f in "${failures[@]}"; do echo "  - $f"; done
+    fi
+    press_enter_if_enabled
+    return
+  fi
   while IFS= read -r s; do
     if ! is_stack_installed "$s"; then
       echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
-      install_stack "$s"
-      installed_count=$((installed_count + 1))
+      if install_stack "$s"; then
+        installed_count=$((installed_count + 1))
+      else
+        failures+=("$s")
+      fi
     else
       printf "${C_SHADOW}${INSTALL_ALREADY_INSTALLED}${C_RESET}\n" "$s"
     fi
   done < <(list_stacks)
+
+  # Restore error handling
+  set -e
+  trap - ERR
   
   echo ""
   if [[ $installed_count -gt 0 ]]; then
@@ -401,9 +669,14 @@ install_missing_stacks() {
   else
     echo -e "${C_INFO}${INSTALL_ALL_ALREADY_INSTALLED}${C_RESET}"
   fi
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  # Update JSON status
+  update_stacks_json || true
+  if (( ${#failures[@]} > 0 )); then
+    echo ""
+    echo -e "${C_RED}The following stacks failed to install:${C_RESET}"
+    for f in "${failures[@]}"; do echo "  - $f"; done
+  fi
+  press_enter_if_enabled
 }
 
 update_all() {
@@ -424,9 +697,7 @@ update_all() {
 
   echo ""
   echo -e "${C_SHADOW}${INSTALL_NOTE_PACKAGES}${C_RESET}"
-  echo ""
-  echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-  read -r
+  press_enter_if_enabled
 }
 
 install_balorsh_wrapper() {
@@ -580,7 +851,7 @@ collect_git_repos_from_install_sh() {
   # mais nous lirons uniquement le contenu texte
   while IFS= read -r -d '' file; do
     while IFS= read -r line; do
-      if [[ "$line" =~ git[[:space:]]+clone ]]; then
+        if [[ "$line" =~ git[[:space:]]+clone ]]; then
         rest="${line#*git clone}"
         # split rest into tokens, find first token like URL
         for token in $rest; do
@@ -606,6 +877,25 @@ collect_git_repos_from_install_sh() {
           # also accept github:user/repo or user/repo -> convert to https URL
           if [[ "$token" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
             urls["https://github.com/$token.git"]=1
+            break
+          fi
+        done
+      fi
+
+      # Support pip installs using git+https://... or git+ssh://... tokens
+      if [[ "$line" =~ git\+ ]]; then
+        # extract tokens like git+https://... or git+ssh://... (stop at space or quote)
+        for token in $line; do
+          if [[ "$token" == git+* ]]; then
+            # strip surrounding quotes and trailing punctuation
+            token="${token%\"}"
+            token="${token#\"}"
+            token="${token%\'}"
+            token="${token#\'}"
+            token="${token%%[,;.:)]}"
+            # remove git+ prefix
+            url="${token#git+}"
+            urls["$url"]=1
             break
           fi
         done
@@ -638,16 +928,34 @@ collect_pkgs_from_script_commands() {
         local saw_S=0
         for tok in "${toks[@]}"; do
           if [[ "$saw_S" -eq 1 ]]; then
-            # arrêter sur ;, &&, ||, redirection ou mots-clés shell
-            [[ "$tok" =~ ^(\&\&|\|\||;|>|<)$ ]] && break
-            # considérer les mots-clés de contrôle shell comme terminaisons
-            [[ "$tok" =~ ^(then|do|done|fi|else|elif|then)$ ]] && break
-            [[ "$tok" == -* ]] && continue
-            # retirer la ponctuation finale
-            tok="${tok%,}"
-            tok="${tok%;}"
-            # ajouter avec le type d'outil détecté
-            pkgs["${tool}:${tok}"]=1
+            	    # arrêter sur ;, &&, ||, redirection ou mots-clés shell
+            	    [[ "$tok" =~ ^(\&\&|\|\||;|>|<)$ ]] && break
+            	    # considérer les mots-clés de contrôle shell comme terminaisons
+            	    [[ "$tok" =~ ^(then|do|done|fi|else|elif|then)$ ]] && break
+            	    [[ "$tok" == -* ]] && continue
+
+            	    # nettoyer le token capturé :
+            	    # - retirer les variables de couleur comme ${C_RESET}
+            	    # - enlever guillemets simples/doubles
+            	    # - couper toute ponctuation finale
+            	    # - ignorer si vide après nettoyage
+            	    # retirer séquences ${C_...}
+            	    tok=$(sed -E 's/\$\{C_[^}]*\}//g' <<<"$tok")
+            	    # enlever guillemets éventuels
+            	    tok="${tok%\"}"
+            	    tok="${tok#\"}"
+            	    tok="${tok%\'}"
+            	    tok="${tok#\'}"
+            	    # retirer ponctuation finale commune
+            	    tok="${tok%,}"
+            	    tok="${tok%;}"
+            	    tok="${tok%%\).*}"
+            	    # retirer tout ce qui n'est pas caractère valide de nom de paquet
+            	    tok=$(sed -E 's/[^A-Za-z0-9._+:-].*$//g' <<<"$tok")
+            	    tok="${tok%% }"
+            	    if [[ -n "$tok" ]]; then
+            	      pkgs["${tool}:${tok}"]=1
+            	    fi
           fi
           if [[ "$tok" =~ ^-S ]]; then
             saw_S=1
@@ -673,31 +981,29 @@ is_pacman_pkg_installed() {
 is_git_repo_installed() {
   local url="$1"
   local name
-  # extraire le nom
   name="$(basename "${url%%.git}")"
-  # vérifier les emplacements courants
-  local paths=(
-    "$BALOR_OPT_ROOT/$name"
-    "$BALOR_OPT_ROOT/stacks/$name"
-    "/opt/$name"
-    "$HOME/.local/src/$name"
-    "$STACKS_DIR/$name"
-  )
-  for p in "${paths[@]}"; do
-    if [[ -d "$p" ]]; then
-      return 0
-    fi
-  done
-  # tester la présence d'une commande porteuse du nom
-  if command -v "$name" >/dev/null 2>&1; then
+
+  # 1) Prefer pip-installed package (explicitly via python -m pip)
+  if python3 -m pip show "$name" >/dev/null 2>&1; then
     return 0
   fi
-  # tenter de rechercher sous BALOR_OPT_ROOT (coûteux mais acceptable)
-  if [[ -d "$BALOR_OPT_ROOT" ]]; then
-    if find "$BALOR_OPT_ROOT" -maxdepth 3 -type d -name "$name" -print -quit 2>/dev/null | grep -q .; then
-      return 0
-    fi
+
+  # 2) If a command with the same name exists in PATH, consider it installed
+  # only if it does not point into local source directories (stacks or ~/.local/src)
+  if command -v "$name" >/dev/null 2>&1; then
+    local cmdpath
+    cmdpath=$(command -v "$name") || true
+    case "$cmdpath" in
+      "$STACKS_DIR"/*|"$HOME/.local/src"/*)
+        return 1
+        ;;
+      *)
+        return 0
+        ;;
+    esac
   fi
+
+  # Otherwise, not considered installed
   return 1
 }
 
@@ -709,6 +1015,12 @@ check_installed_tools() {
   # plusieurs paquets sans interrompre la routine
   set +e
 
+  # Function to join array elements with comma
+  join_array() {
+    local IFS=','
+    echo "$*"
+  }
+
   # collecter paquets depuis packages.txt
   mapfile -t pkgs_from_txt < <(collect_packages_from_packages_txt)
   # collecter paquets explicitement dans scripts (paru/pacman)
@@ -718,6 +1030,10 @@ check_installed_tools() {
   for p in "${pkgs_from_txt[@]}" "${pkgs_from_scripts[@]}"; do
     [[ -n "$p" ]] || continue
     ALL_PKG_SET["$p"]=1
+  done
+  # Ajouter les paquets essentiels
+  for ess in "${ESSENTIAL_PACKAGES[@]}"; do
+    ALL_PKG_SET["pacman:$ess"]=1
   done
   # list of packages
   pkgs=()
@@ -730,9 +1046,11 @@ check_installed_tools() {
 
   local total_expected=0
   local installed_count=0
-  declare -a pacman_found=() pacman_missing=()
-  declare -a aur_found=() aur_missing=()
-  declare -a git_found=() git_missing=()
+  local protected_count=0
+  declare -a pacman_found=() pacman_missing=() pacman_protected=()
+  declare -a aur_found=() aur_missing=() aur_protected=()
+  declare -a git_found=() git_missing=() git_protected=() git_missing_names=()
+  declare -a pipx_found=() pipx_missing=() pipx_protected=()
 
   # check packages (entries are normalized as type:name)
   for p in "${pkgs[@]}"; do
@@ -743,7 +1061,12 @@ check_installed_tools() {
     case "$type" in
       pacman)
         if is_pacman_pkg_installed "$name"; then
-          pacman_found+=("$name")
+          if [[ " ${ESSENTIAL_PACKAGES[*]} " =~ " $name " ]]; then
+            pacman_protected+=("$name")
+            ((protected_count++))
+          else
+            pacman_found+=("$name")
+          fi
           ((installed_count++))
         else
           pacman_missing+=("$name")
@@ -752,7 +1075,12 @@ check_installed_tools() {
       aur)
         # AUR packages, check via pacman DB (if built/installed they appear there)
         if is_pacman_pkg_installed "$name"; then
-          aur_found+=("$name")
+          if [[ " ${ESSENTIAL_PACKAGES[*]} " =~ " $name " ]]; then
+            aur_protected+=("$name")
+            ((protected_count++))
+          else
+            aur_found+=("$name")
+          fi
           ((installed_count++))
         else
           aur_missing+=("$name")
@@ -761,7 +1089,12 @@ check_installed_tools() {
       *)
         # unknown type -> assume pacman
         if is_pacman_pkg_installed "$name"; then
-          pacman_found+=("$name")
+          if [[ " ${ESSENTIAL_PACKAGES[*]} " =~ " $name " ]]; then
+            pacman_protected+=("$name")
+            ((protected_count++))
+          else
+            pacman_found+=("$name")
+          fi
           ((installed_count++))
         else
           pacman_missing+=("$name")
@@ -779,6 +1112,7 @@ check_installed_tools() {
       ((installed_count++))
     else
       git_missing+=("${repo_name}:${url}")
+      git_missing_names+=("$repo_name")
     fi
   done
 
@@ -787,36 +1121,53 @@ check_installed_tools() {
   echo "  ${INSTALL_CHECK_EXPECTED} $total_expected"
   echo "  ${INSTALL_CHECK_INSTALLED} $installed_count"
   echo "  ${INSTALL_CHECK_MISSING} $((total_expected - installed_count))"
+  echo "  Protégés: $protected_count"
   echo
 
   echo "${INSTALL_CHECK_DETAILS}"
-  echo "  ${INSTALL_CHECK_PACMAN} $(( ${#pacman_found[@]} + ${#pacman_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#pacman_found[@]}${INSTALL_CHECK_MISSINGS} ${#pacman_missing[@]}"
-  if (( ${#pacman_found[@]} )); then
-    echo "${INSTALL_CHECK_INST_LIST} ${pacman_found[*]}"
-  fi
-  if (( ${#pacman_missing[@]} )); then
-    echo "${INSTALL_CHECK_MISS_LIST} ${pacman_missing[*]}"
-  fi
 
-  echo "  ${INSTALL_CHECK_AUR} $(( ${#aur_found[@]} + ${#aur_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#aur_found[@]}${INSTALL_CHECK_MISSINGS} ${#aur_missing[@]}"
-  if (( ${#aur_found[@]} )); then
-    echo "${INSTALL_CHECK_INST_LIST} ${aur_found[*]}"
-  fi
-  if (( ${#aur_missing[@]} )); then
-    echo "${INSTALL_CHECK_MISS_LIST} ${aur_missing[*]}"
-  fi
+  # Combine git and pipx arrays
+  declare -a git_pipx_found=("${git_found[@]}" "${pipx_found[@]}")
+  declare -a git_pipx_missing=("${git_missing_names[@]}" "${pipx_missing[@]}")
+  declare -a git_pipx_protected=("${git_protected[@]}" "${pipx_protected[@]}")
 
-  echo "  ${INSTALL_CHECK_GIT} $(( ${#git_found[@]} + ${#git_missing[@]} ))${INSTALL_CHECK_INSTALLEDS} ${#git_found[@]}${INSTALL_CHECK_MISSINGS} ${#git_missing[@]}"
-  if (( ${#git_found[@]} )); then
-    echo "${INSTALL_CHECK_INST_LIST} ${git_found[*]}"
-  fi
-  if (( ${#git_missing[@]} )); then
-    for gm in "${git_missing[@]}"; do
-      name="${gm%%:*}"
-      url="${gm#*:}"
-      echo "${INSTALL_CHECK_MISS_ITEM} ${name} (${url})"
+  # Function to print a table
+  print_table() {
+    local title="$1"
+    local col1="$2" col2="$3" col3="$4"
+    local arr1_name="$5" arr2_name="$6" arr3_name="$7"
+
+    eval "local arr1=(\"\${$arr1_name[@]}\")"
+    eval "local arr2=(\"\${$arr2_name[@]}\")"
+    eval "local arr3=(\"\${$arr3_name[@]}\")"
+
+    echo -e "${C_ACCENT2}$title${C_RESET}"
+    printf "${C_ACCENT2}%-30s %-30s %-30s${C_RESET}\n" "$col1" "$col2" "$col3"
+    printf "${C_ACCENT2}%-30s %-30s %-30s${C_RESET}\n" "------------------------------" "------------------------------" "------------------------------"
+
+    local max_len=0
+    (( ${#arr1[@]} > max_len )) && max_len=${#arr1[@]}
+    (( ${#arr2[@]} > max_len )) && max_len=${#arr2[@]}
+    (( ${#arr3[@]} > max_len )) && max_len=${#arr3[@]}
+
+    for ((i=0; i<max_len; i++)); do
+      printf "${C_GOOD}%-30s${C_RESET} ${C_RED}%-30s${C_RESET} ${C_ACCENT1}%-30s${C_RESET}\n" \
+        "${arr1[i]:-}" "${arr2[i]:-}" "${arr3[i]:-}"
     done
-  fi
+
+    printf "${C_ACCENT2}%-30s %-30s %-30s${C_RESET}\n" \
+      "${#arr1[@]}" "${#arr2[@]}" "${#arr3[@]}"
+    echo
+  }
+
+  # PACMAN table
+  print_table "PACMAN" "Installé" "Désinstallé" "Protégé" pacman_found pacman_missing pacman_protected
+
+  # AUR table
+  print_table "AUR" "Installé" "Désinstallé" "Protégé" aur_found aur_missing aur_protected
+
+  # GIT/PIPX table
+  print_table "GIT/PIPX" "Installé" "Désinstallé" "Protégé" git_pipx_found git_pipx_missing git_pipx_protected
 
   echo
   echo "${INSTALL_CHECK_TIPS}"
@@ -841,6 +1192,62 @@ ensure_stack_scripts_executable() {
   done
 }
 
+check_essential_packages() {
+  echo -e "${C_INFO}${MSG_ESSENTIAL_CHECK}${C_RESET}"
+  echo ""
+  
+  for pkg in "${ESSENTIAL_PACKAGES[@]}"; do
+    if pacman -Qi "$pkg" >/dev/null 2>&1; then
+      printf "${MSG_ESSENTIAL_OK}\n" "$pkg"
+    else
+      printf "${MSG_ESSENTIAL_MISSING}\n" "$pkg"
+      install_pacman_pkg "$pkg"
+      printf "${MSG_ESSENTIAL_INSTALLED}\n" "$pkg"
+    fi
+  done
+  echo ""
+}
+
+# Supprimer les paquets orphelins
+remove_orphaned_packages() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "        ${C_RED}${INSTALL_REMOVE_ORPHANS_TITLE}${C_RESET}                      "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  # Lister les paquets orphelins
+  local orphans
+  orphans=$(pacman -Qdtq 2>/dev/null || true)
+  
+  if [[ -z "$orphans" ]]; then
+    echo -e "${C_GOOD}${INSTALL_NO_ORPHANS}${C_RESET}"
+    press_enter_if_enabled
+    return
+  fi
+  
+  echo -e "${C_YELLOW}${INSTALL_ORPHANS_FOUND}${C_RESET}"
+  echo "$orphans" | sed 's/^/  - /'
+  echo ""
+  
+  echo -ne "${C_RED}${INSTALL_ORPHANS_CONFIRM}${C_RESET} "
+  read -r confirm
+  
+  if [[ "$confirm" =~ ^[oOyY]$ ]]; then
+    echo -e "${C_YELLOW}${INSTALL_ORPHANS_REMOVING}${C_RESET}"
+    echo "$orphans" | sudo pacman -Rns --noconfirm - || true
+    local exit_code=$?
+    if [[ $exit_code -eq 0 ]]; then
+      echo -e "${C_GOOD}${INSTALL_ORPHANS_REMOVED}${C_RESET}"
+    else
+      echo -e "${C_RED}${INSTALL_ORPHANS_FAILED}${C_RESET}"
+    fi
+  else
+    echo -e "${C_INFO}${INSTALL_CANCELLED}${C_RESET}"
+  fi
+  
+  press_enter_if_enabled
+}
 
 main_menu() {
   while true; do
@@ -880,6 +1287,7 @@ main_menu() {
       " ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
       " ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
       " ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
+      " ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${INSTALL_MENU_12}${C_RESET}"
       ""
       " ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
     )
@@ -943,12 +1351,13 @@ main_menu() {
       8) menu_uninstall ;;
       9) uninstall_all ;;
       10) update_all ;;
-      11) 
-        check_installed_tools
+      11)
+        check_installed_tools || true
         echo ""
-        echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
-        read -r
+        # Prompt and wait (centralisé)
+        press_enter_if_enabled
         ;;
+      12) remove_orphaned_packages ;;
       0) 
         clear
         echo -e "${C_GOOD}[Idenroad] ${INSTALL_BYE}${C_RESET}"
@@ -971,7 +1380,7 @@ _json_join() {
   for v in "${_arr[@]}"; do
     # escape backslashes and quotes
     esc=${v//\\/\\\\}
-    esc=${esc//"/\\"}
+    esc=${esc//\"/\\\"}
     if [[ -n "$out" ]]; then out+=","; fi
     out+="\"${esc}\""
   done
@@ -1049,8 +1458,8 @@ check_installed_tools_json() {
     name="${gm%%:*}"
     url="${gm#*:}"
     # escape quotes for JSON
-    esc_name=${name//"/\\"}
-    esc_url=${url//"/\\"}
+    esc_name=${name//\"/\\\"}
+    esc_url=${url//\"/\\\"}
     if [[ $first -eq 0 ]]; then printf ',' >>"$tmpf"; fi
     printf '{"name":"%s","url":"%s"}' "$esc_name" "$esc_url" >>"$tmpf"
     first=0
@@ -1108,6 +1517,11 @@ if [[ "${1:-}" == "--check-tools" ]]; then
   check_installed_tools
   exit $?
 fi
+# Options CLI : permettre les vérifications non-interactives
+if [[ "${1:-}" == "--check-tools" ]]; then
+  check_installed_tools
+  exit $?
+fi
 if [[ "${1:-}" == "--check-tools-json" ]]; then
   check_installed_tools_json
   exit $?
@@ -1115,5 +1529,7 @@ fi
 # permettre le sourcing non-interactif pour le débogage : définir NO_MAIN_MENU=1 pour
 # ignorer le menu
 if [[ -z "${NO_MAIN_MENU:-}" ]]; then
+  check_essential_packages
   main_menu
 fi
+

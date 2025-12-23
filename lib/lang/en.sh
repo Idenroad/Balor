@@ -23,6 +23,19 @@ MSG_PKG_INSTALLING="[INSTALL] %s (pacman)..."
 MSG_PKG_AUR_SKIP="[SKIP] %s (AUR): paru not configured."
 MSG_PKG_AUR_ALREADY="[OK] %s already installed (AUR)."
 MSG_PKG_AUR_INSTALLING="[INSTALL] %s (AUR)..."
+MSG_PKG_SKIP_SHARED="[SKIP] %s used by another installed stack."
+
+# Essential packages check
+MSG_ESSENTIAL_CHECK="Checking essential packages..."
+MSG_ESSENTIAL_OK="%s: OK"
+MSG_ESSENTIAL_MISSING="%s: MISSING - Installing..."
+MSG_ESSENTIAL_INSTALLED="%s: Installed"
+MSG_ESSENTIAL_PROTECTED="[PROTECTED] %s is essential and cannot be uninstalled."
+
+# Package removal
+MSG_PKG_REMOVING="[REMOVE] %s..."
+MSG_PKG_REMOVE_FAILED="[WARN] Failed to remove %s (system dependency?)."
+MSG_PKG_NOT_INSTALLED="[SKIP] %s not installed."
 
 # ============================================================================
 # WIFI COMMANDS.SH - WiFi menu and commands
@@ -215,6 +228,7 @@ INSTALL_MENU_8="Uninstall a specific stack"
 INSTALL_MENU_9="Uninstall all stacks"
 INSTALL_MENU_10="Update everything (stacks + wrapper)"
 INSTALL_MENU_11="Check installed tools"
+INSTALL_MENU_12="Remove orphaned packages"
 INSTALL_MENU_0="Exit"
 
 # Prompts
@@ -235,6 +249,9 @@ INSTALL_RETURN="Back"
 INSTALL_UNINSTALL_ALL_TITLE="Uninstall ALL stacks"
 INSTALL_UNINSTALL_ALL_WARNING="⚠  WARNING: This action will uninstall ALL stacks!"
 INSTALL_UNINSTALL_ALL_CONFIRM="Are you sure? [y/N]:"
+INSTALL_UNINSTALL_ALL_DATA_PROMPT="Do you want to remove data from all stacks? [y/N]: "
+INSTALL_UNINSTALL_ALL_DATA_REMOVING="Removing data from all stacks..."
+INSTALL_UNINSTALL_ALL_DATA_SKIPPED="Stack data kept."
 INSTALL_INSTALL_EXCEPT_LLM_TITLE="Install all stacks EXCEPT LLM"
 INSTALL_INSTALL_ALL_TITLE="Install ALL stacks"
 INSTALL_UPDATE_SYSTEM_TITLE="System + AUR update"
@@ -301,11 +318,26 @@ INSTALL_CHECK_TITLE="=== Checking tools listed in the stacks ==="
 INSTALL_CHECK_EXPECTED="Expected:"
 INSTALL_CHECK_INSTALLED="Installed:"
 INSTALL_CHECK_MISSING="Missing:"
+INSTALL_CHECK_DETAILS="Details:"
+INSTALL_CHECK_SUMMARY="Summary:"
 INSTALL_CHECK_PACMAN="Pacman:"
 INSTALL_CHECK_AUR="AUR (paru):"
 INSTALL_CHECK_GIT="Git/others:"
 INSTALL_CHECK_INSTALLEDS=" installed,"
 INSTALL_CHECK_MISSINGS=" missing"
+INSTALL_CHECK_TIPS="Tips:"
+INSTALL_CHECK_TIP1="• Use option 1 to install missing stacks"
+INSTALL_CHECK_TIP2="• Use option 2 to update the system"
+INSTALL_CHECK_TIP3="• Check dependencies manually if needed"
+
+# Orphaned packages removal messages
+INSTALL_REMOVE_ORPHANS_TITLE="Remove orphaned packages"
+INSTALL_NO_ORPHANS="No orphaned packages found."
+INSTALL_ORPHANS_FOUND="Orphaned packages found:"
+INSTALL_ORPHANS_CONFIRM="Do you want to remove them? [y/N]: "
+INSTALL_ORPHANS_REMOVING="Removing orphaned packages..."
+INSTALL_ORPHANS_REMOVED="Orphaned packages removed successfully."
+INSTALL_ORPHANS_FAILED="Failed to remove orphaned packages."
 
 # Main installation messages
 INSTALL_BANNER_FALLBACK="=== Balor Installer – Powered by Idenroad ==="
@@ -316,8 +348,37 @@ UNINSTALL_SCRIPT_NOT_FOUND="[!] Uninstallation script not found for: %s"
 # Generic installation messages
 INSTALL_STACK_START="Installing %s stack..."
 INSTALL_STACK_COMPLETE="✓ %s stack installed successfully."
-UNINSTALL_STACK_START="Uninstalling %s stack..."
+UNINSTALL_STACK_START="Starting uninstallation of %s stack..."
 UNINSTALL_STACK_COMPLETE="✓ %s stack uninstalled successfully."
+UNINSTALL_STACK_ERROR="✗ Errors during uninstallation of %s stack (code %s):"
+UNINSTALL_DATA_DIR_PROMPT="Do you want to remove the data directory for stack %s? [%s/%s]: "
+UNINSTALL_DATA_DIR_REMOVING="Removing data directory %s..."
+UNINSTALL_DATA_DIR_SKIPPED="Data directory kept."
+
+# Forced installation messages
+INSTALL_FORCE_INSTALL="Force installing %s..."
+INSTALL_FORCE_FAILED="Forced installation failed for %s"
+INSTALL_FAILED="Installation failed for %s"
+INSTALL_UNKNOWN="unknown"
+
+# Package uninstallation messages
+INSTALL_UNINSTALLING_PACKAGES="Uninstalling packages..."
+
+# Failed stacks messages
+INSTALL_FAILED_STACKS_REINSTALL="The following stacks failed to reinstall:"
+INSTALL_FAILED_STACKS_UPDATE="The following stacks failed to update:"
+INSTALL_FAILED_STACKS_INSTALL="The following stacks failed to install:"
+
+# Force mode messages
+INSTALL_FORCE_MODE_ALL_EXCEPT_LLM="FORCE mode activated: attempting to install/reinstall all stacks (except llm)."
+INSTALL_FORCE_MODE_ALL="FORCE mode activated: attempting to install/reinstall all stacks."
+INSTALL_FORCE_MODE_UPDATE="FORCE mode activated: attempting to reinstall all stacks (ignore JSON)."
+INSTALL_FORCE_MODE_MISSING="FORCE mode activated: attempting complete installation (including already present stacks)."
+INSTALL_FORCE_PROMPT_DEFAULT="Do you want to force the installation? [y/N]: "
+INSTALL_FORCE_PROMPT_ALL="Force installation of all stacks (ignore JSON)? [y/N]: "
+INSTALL_NO_JSON_FILE="No JSON file found (%s) — complete installation forced."
+INSTALL_REMOVING_JSON_DIR="Removing /opt/balorsh/json..."
+INSTALL_REINSTALLING_STACK="Reinstalling %s"
 
 # Package messages
 INSTALL_PACMAN_PACKAGES="Installing pacman packages..."
@@ -1045,6 +1106,8 @@ INSTALL_NO_PACKAGES="No packages to install."
 
 MSG_YES="Yes"
 MSG_NO="No"
+MSG_YES_CHAR="y"
+MSG_NO_CHAR="N"
 MSG_CANCEL="Cancel"
 MSG_CONFIRM="Confirm"
 MSG_ERROR="Error"

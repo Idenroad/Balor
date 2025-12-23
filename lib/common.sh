@@ -5,6 +5,24 @@ SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=i18n.sh
 source "$SCRIPT_DIR_COMMON/i18n.sh"
 
+# Packages essentiels - protégés de la désinstallation
+ESSENTIAL_PACKAGES=(
+  "curl"
+  "git"
+  "openssh"
+  "python"
+  "python-pip"
+  "fzf"
+  "smbclient"
+  "nfs-utils"
+  "rpcbind"
+  "freerdp"
+  "python-pipx"
+  "ollama"
+)
+
+export ESSENTIAL_PACKAGES
+
 # Détection de paru
 have_paru() {
   command -v paru >/dev/null 2>&1
@@ -67,23 +85,21 @@ install_aur_pkg() {
 remove_pkg() {
   local pkg="$1"
 
-  # Paquets qu'on ne supprime jamais automatiquement (trop core / partagés)
-  local protected_pkgs=("iptables-nft" "iproute2" "ufw" "git" "python" "python-pip")
-
-  for prot in "${protected_pkgs[@]}"; do
-    if [[ "$pkg" == "$prot" ]]; then
-      echo "  [SKIP] $pkg est marqué comme protégé, non désinstallé automatiquement."
+  # Vérifier si le package est dans la liste des essentiels
+  for essential in "${ESSENTIAL_PACKAGES[@]}"; do
+    if [[ "$pkg" == "$essential" ]]; then
+      printf "$MSG_ESSENTIAL_PROTECTED\n" "$pkg"
       return
     fi
   done
 
   if pacman -Qi "$pkg" >/dev/null 2>&1; then
-    echo "  [REMOVE] $pkg..."
+    printf "$MSG_PKG_REMOVING\n" "$pkg"
     sudo pacman -Rns --noconfirm "$pkg" || {
-      echo "  [WARN] Impossible de désinstaller $pkg (dépendances système ?)."
+      printf "$MSG_PKG_REMOVE_FAILED\n" "$pkg"
     }
   else
-    echo "  [SKIP] $pkg pas installé."
+    printf "$MSG_PKG_NOT_INSTALLED\n" "$pkg"
   fi
 }
 
@@ -162,3 +178,68 @@ C_RED="\033[91m"                        # Rouge pour erreurs
 C_YELLOW="\033[93m"                     # Jaune pour warnings
 
 export C_RESET C_BOLD C_ACCENT1 C_ACCENT2 C_GOOD C_HIGHLIGHT C_SHADOW C_INFO C_RED C_YELLOW
+
+# Supprimer le répertoire de données d'une stack
+remove_stack_data_dir() {
+  local stack="$1"
+  local data_dir="$BALOR_OPT_ROOT/data/$stack"
+  
+  # Si on est en mode "supprimer toutes les données" (désinstallation complète)
+  if [[ "${UNINSTALL_ALL_DATA:-false}" == "true" ]]; then
+    if [[ -d "$data_dir" ]]; then
+      printf "${C_YELLOW}${UNINSTALL_DATA_DIR_REMOVING}${C_RESET}\n" "$data_dir"
+      sudo rm -rf "$data_dir"
+    fi
+    return
+  fi
+  
+  # Mode individuel : demander confirmation
+  if [[ -d "$data_dir" ]]; then
+    printf "${UNINSTALL_DATA_DIR_PROMPT}" "$stack" "$data_dir" "[o/N]"
+    read -r choice
+    if [[ "$choice" =~ ^[oOyY]$ ]]; then
+      printf "${C_YELLOW}${UNINSTALL_DATA_DIR_REMOVING}${C_RESET}\n" "$data_dir"
+      sudo rm -rf "$data_dir"
+    else
+      echo -e "${C_INFO}${UNINSTALL_DATA_DIR_SKIPPED}${C_RESET}"
+    fi
+  fi
+}
+
+# Vérifier et installer les packages essentiels
+check_essential_packages() {
+  echo "$MSG_ESSENTIAL_CHECK"
+  
+  for pkg in "${ESSENTIAL_PACKAGES[@]}"; do
+    if pacman -Qi "$pkg" >/dev/null 2>&1; then
+      printf "$MSG_ESSENTIAL_OK\n" "$pkg"
+    else
+      printf "$MSG_ESSENTIAL_MISSING\n" "$pkg"
+      sudo pacman -S --needed --noconfirm "$pkg"
+      printf "$MSG_ESSENTIAL_INSTALLED\n" "$pkg"
+    fi
+  done
+}
+
+# Option globale pour activer/désactiver les pauses "Appuyez sur Entrée"
+# Par défaut activée; peut être surchargée via l'environnement (ex: ENABLE_PRESS_ENTER_PROMPT=0)
+ENABLE_PRESS_ENTER_PROMPT=${ENABLE_PRESS_ENTER_PROMPT:-1}
+
+# Affiche l'invite localisée 'Appuyez sur Entrée' et attend l'entrée utilisateur
+# Ne fait rien si ENABLE_PRESS_ENTER_PROMPT est à 0 (utile pour CI/batch)
+press_enter_if_enabled() {
+  if [[ "${ENABLE_PRESS_ENTER_PROMPT}" == "1" ]]; then
+    # Utiliser la chaîne i18n INSTALL_PRESS_ENTER définie côté install.sh/i18n
+    echo ""
+    if [[ -n "${C_ACCENT1:-}" && -n "${C_RESET:-}" ]]; then
+      echo -ne "${C_ACCENT1}${INSTALL_PRESS_ENTER}${C_RESET}"
+    else
+      printf "%s" "${INSTALL_PRESS_ENTER:-Appuyez sur Entrée pour continuer...}"
+    fi
+    if [[ -e /dev/tty ]]; then
+      IFS= read -r </dev/tty
+    else
+      read -r
+    fi
+  fi
+}
