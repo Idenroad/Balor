@@ -40,6 +40,8 @@ All LLM interactions run locally via Ollama for privacy and offline use.
 
 Goal: turn a clean CachyOS base into a portable offensive platform with AI assistance, reproducible and safe for controlled use.
 
+![legiongo](https://github.com/user-attachments/assets/4ecfc90d-9e0c-4557-9fc0-34f9de4bd04a)
+
 ---
 
 ## 🎯 Concept: Layer on top of CachyOS Handheld Edition
@@ -85,192 +87,6 @@ Quick reference of stacks included in the project (versions shown are internal s
 8. 🤖 **LLM** – Ollama for local AI models
 
 ---
-
-## ⚡ Quick install
-
-```bash
-git clone https://github.com/Idenroad/Balor.git
-cd Balor
-chmod +x install.sh
-./install.sh
-```
-
-In the interactive menu choose the option to install `balorsh` and the stacks into `/opt/balorsh` (option 6 in the installer UI).
-
-Commands:
-
-```bash
-balorsh --help
-balorsh --version
-balorsh list
-sudo balorsh <stack>
-```
-
-Recommended: install all stacks for a complete environment.
-
----
-
-## 🚀 Requirements
-
-- CachyOS Handheld Edition installed
-- Root / sudo access
-- Internet connection for package and AUR downloads
-
----
-
-## 🗺️ Roadmap
-
-- Document and improve reporting templates
-- Forensics / IR tooling
-- Expanded documentation and cheat sheets
-- Telephony stack (SMS, SIP)
-- Enhanced AI orchestration features
-
----
-
-## ⚠️ Legal / Disclaimer
-
-Balor is intended for security professionals and enthusiasts. Use only on systems for which you have explicit authorization. The authors are not responsible for misuse.
-
----
-
-## 📧 Contact
-
-- Idenroad: https://idenroad.ca
-# Balor – Idenroad Legion
-
-[Version française](README_fr.md)
-
-<img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
-
-**Balor** is a **modular pentesting framework** built on top of [CachyOS Handheld Edition](https://cachyos.org/), designed for portable offensive security platforms (Steam‑Deck‑like devices, Lenovo Legion Go, laptops, mini‑PCs).
-
-## 🚀 Framework, Not Just Scripts
-
-Balor has evolved from simple scripts into a **comprehensive pentesting framework** featuring:
-
-- 🎯 **Modular Stack Architecture** – Independent modules (WiFi, LLM, NetworkScan, Password, OSINT, WebExploit, RemoteAccess)
-- 🔧 **Plugin System** – Each stack installs/uninstalls cleanly without system pollution
-- 🌐 **Complete i18n** – 400+ translated variables supporting French & English
-- 🎨 **Unified UI** – Consistent color schemes and standardized menus across all stacks
-- 📚 **Shared Libraries** – Reusable components (lib/common.sh, lib/i18n.sh)
-- 🤖 **AI Integration** – Built-in LLM capabilities with specialized security personas
-- ⚙️ **Centralized Management** – Single `balorsh` wrapper for all operations
-
-## 🤖 AI-Powered Security Analysis
-
-One of Balor's unique features is the **LLM Stack** powered by Ollama, providing AI-assisted pentesting:
-
-### Security Personas
-- 🔴 **Red Team** – Offensive security expert for attack vectors and exploitation
-- 🔵 **Blue Team** – Defensive security specialist for hardening and detection
-- 🟣 **Purple Team** – Combined offensive/defensive analysis and recommendations
-- 📊 **Log Analyst** – Automated log analysis and threat detection
-- 🎓 **Base** – General cybersecurity knowledge and education
-
-### Key Features
-- 💬 **Interactive Chat** – Real-time consultation with AI security experts
-- 📝 **Log Analysis** – Automated security log parsing and threat identification
-- 💾 **Session Management** – Save and review conversations and analyses
-- 🔄 **Model Switching** – Hot-swap between personas without restart
-- 🧠 **Custom Models** – Import and use your own fine-tuned security models
-
-All LLM interactions run **locally** via Ollama for privacy and offline capability.
-
-Goal: turn a clean CachyOS base into a **portable offensive platform** with AI assistance, scripted, reproducible, without trashing the whole system.
-
----
-
-## 🎯 Concept: Overlay on top of CachyOS Handheld Edition
-
-Balor does **not** replace CachyOS:
-
-- You start from a standard **CachyOS Handheld Edition** install.
-- The Idenroad overlay adds:
-  - per‑stack install / uninstall scripts,
-  - minimal integration to avoid polluting the system,
-  - an offensive focus (WiFi, OSINT, BLE, remote, etc.).
-
-You keep:
-
-- the optimized kernel, performance and tooling from CachyOS,
-- and you add an **offensive “Legion” layer**.
-
----
-## 🌍 Multilingual Support (0.6)
-
-Balor now includes a complete **internationalization (i18n) system** supporting:
-
-- 🇫🇷 **French** (Français)
-- 🇬🇧 **English**
-
-The language is **automatically detected** from your system's `LANG` environment variable on CachyOS.
-
-**Quick start:**
-```bash
-# Use with auto-detection (default)
-./balorsh
-
-# Force a specific language
-BALOR_LANG=fr ./balorsh   # French
-BALOR_LANG=en ./balorsh   # English
-```
-
-📚 **Full documentation:**
-
----
-## 🛡️ “Legion” Concept
-
-The **Legion** idea: a curated set of tools, tested and integrated, rather than a huge bag of random packages.
-
-- Each *legion* = a thematic **stack** (WiFi, OSINT, Password, Remote, etc.).
-- Each stack:
-  - has its own `install.sh` / `uninstall.sh`,
-  - uses a `packages.txt` file to declare dependencies (`pacman:` / `aur:`),
-  - avoids side‑effects (NetworkManager, Java, system services, etc.),
-  - can be added or removed without breaking the rest.
-
-<br>
-<img width="581" height="759" alt="Copie d&#39;écran_20251214_220511" src="https://github.com/user-attachments/assets/44aca9d1-e658-4d4f-adc1-12ecccc58839" />
-
-
-
----
-
-## 📦 Available stacks
-
-Current Balor stacks.
-
-> Numbers in parentheses are internal stack versions used only for tracking (0.x).
-
-## ⚙️ balorsh — The wrapper (core feature) (0.6)
-
-`balorsh` is the central command wrapper for this project — essentially the
-feature that brings the overlay to life. It loads the framework installed in
-/opt/balorsh and exposes per-stack menus, helper commands and a consistent
-CLI surface so you don't have to call individual scripts directly.
-
-Usage examples:
-
-- Open the WiFi stack menu: `balorsh wifi` (stack example: `balorsh wifi (0.6)`)
-- List available stacks: `balorsh list`
-
-Using `balorsh` is the recommended way to interact with stacks — it provides
-validation, consistent UX and easier upgrades compared to running stack
-installers or scripts manually.
-
-Note: These stacks and the `balorsh` wrapper are primarily targeted at
-CachyOS / CachyOS Handheld Edition (the project is designed to integrate
-cleanly with that base system).
-
-Tip: In the WiFi stack menu you can use option [22] for Help and option [23] to restart NetworkManager.
-
-**Stack commands**
-
-- wifi: 23 choices (0.6)
-- networkscan: 18 choices (0.7)
-
-Inspiration and improvements: the design borrows ideas from [NETREAPER](https://github.com/Nerds489/NETREAPER/). However, Balor extends that model with extra utilities for cracking workflows — interactive wordlist selection, recursive concatenation of multiple lists into a prepared temporary wordlist, and direct integration with `aircrack-ng`/`hashcat` for a smoother cracking experience.
 
 ### 1. 📡 WiFi Stack
 
@@ -471,7 +287,7 @@ Inspiration and improvements: the design borrows ideas from [NETREAPER](https://
 
 ---
 
-## ⚡ Quick Install
+## ⚡ Quick install
 
 ```bash
 git clone https://github.com/Idenroad/Balor.git
@@ -480,9 +296,9 @@ chmod +x install.sh
 ./install.sh
 ```
 
-In the menu, press **5** to install balorsh and all stacks in `/opt/balorsh`
+In the interactive menu choose the option to install `balorsh` and the stacks into `/opt/balorsh` (option 6 in the installer UI).
 
-In your terminal, you can use:
+Commands:
 
 ```bash
 balorsh --help
@@ -491,80 +307,38 @@ balorsh list
 sudo balorsh <stack>
 ```
 
-**For updating Balor:**
-
-1. Download the new release or `git clone`
-2. `cd Balor`
-3. `chmod +x install.sh`
-4. `./install.sh`
-5. Choose **5** again in the menu
-
-**Recommended:** Install ALL stacks!
+Recommended: install all stacks for a complete environment.
 
 ---
 
-## 🚀 Requirement
+## 🚀 Requirements
 
-
-- A working **CachyOS Handheld Edition** installation.
-- Root / `sudo` access.
-- Internet connection (packages + AUR).
-
-One option in the script allows you to **upgrade everything**:
-
-- CachyOS core,
-- installed packages,
-- Balor tools.
-
-> ⚠️ Warning: this affects the **whole system**, like a full Arch/CachyOS upgrade.  
-> Use it only if you know what you’re doing.
+- CachyOS Handheld Edition installed
+- Root / sudo access
+- Internet connection for package and AUR downloads
 
 ---
 
-**Target platforms:** Lenovo Legion Go, Steam Deck and other handhelds / laptops.
+## 🗺️ Roadmap
 
-![legiongo](https://github.com/user-attachments/assets/4ecfc90d-9e0c-4557-9fc0-34f9de4bd04a)
-
----
-
-## 🗺️ Roadmap (next legions)
-
-Some ideas for future stacks / legions:
-
-- **BLE / RF**: tools like `btlejack`, basic NRF / RF analysis.
-- **Reporting**: report templates, small artifact‑collection scripts.
-- **Forensics / light IR**: post‑exploitation analysis tools, log / artifact collection.
-- **Doc / Cheatsheets**: offline helper stack for working on the go.
+- Document and improve reporting templates
+- Forensics / IR tooling
+- Expanded documentation and cheat sheets
+- Telephony stack (SMS, SIP)
+- Enhanced AI orchestration features
 
 ---
 
-## 🛠️ Quickstart: WiFi + OSINT pentest with Idenroad
+## ⚠️ Legal / Disclaimer
 
-### Scenario: WiFi audit + OSINT on a target
+Balor is intended for security professionals and enthusiasts. Use only on systems for which you have explicit authorization. The authors are not responsible for misuse.
 
-1. **Start an evil twin with roguehostapd:**
+---
 
-   ```bash
-   sudo roguehostapd -i wlan1 -e "FreeWiFi" -c 6
-   ```
+## 📧 Contact
 
-2. **Run a captive portal with wifiphisher:**
-
-   ```bash
-   sudo wifiphisher -aI wlan1 -e "FreeWiFi"
-   ```
-
-3. **Run theHarvester on a target domain:**
-
-   ```bash
-   theHarvester -d example.com -b all
-   ```
-
-4. **Launch Maltego (with a working Java setup):**
-
-   ```bash
-   maltego
-   ```
+- **Idenroad**: https://idenroad.ca  
+- **GitHub**: https://github.com/idenroad/Balor
 
 ---
 
@@ -580,7 +354,4 @@ Balor / Idenroad authors and contributors **cannot be held responsible** for any
 
 ---
 
-## 📧 Contact
 
-- **Idenroad**: https://idenroad.ca  
-- **GitHub**: https://github.com/idenroad/Balor
