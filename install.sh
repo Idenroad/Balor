@@ -11,6 +11,8 @@ source "$BALOR_ROOT/lib/common.sh"
 
 # Vérifier les packages essentiels au lancement
 check_essential_packages
+# Ensure AUR helper (paru) is present or offer to install it
+ensure_aur_helper
 
 # Codes couleur
 C_RESET="\e[0m"
@@ -286,13 +288,21 @@ uninstall_all() {
   echo -e "${C_YELLOW}${INSTALL_UNINSTALL_ALL_WARNING}${C_RESET}"
   echo ""
   echo -ne "${C_RED}${INSTALL_UNINSTALL_ALL_CONFIRM} ${C_RESET}"
-  read -r confirm
+  if [[ -e /dev/tty ]]; then
+    IFS= read -r confirm </dev/tty
+  else
+    read -r confirm
+  fi
   
   if [[ "$confirm" =~ ^[oOyY]$ ]]; then
     # Demander si on supprime les données
     echo ""
     printf "$INSTALL_UNINSTALL_ALL_DATA_PROMPT"
-    read -r data_choice
+    if [[ -e /dev/tty ]]; then
+      IFS= read -r data_choice </dev/tty
+    else
+      read -r data_choice
+    fi
     if [[ "$data_choice" =~ ^[oOyY]$ ]]; then
       export UNINSTALL_ALL_DATA=true
       echo -e "${C_YELLOW}${INSTALL_UNINSTALL_ALL_DATA_REMOVING}${C_RESET}"
@@ -305,6 +315,7 @@ uninstall_all() {
     # exécuter d'abord chaque script `uninstall` de stack (best-effort),
     # puis collecter les paquets pour suppression via le gestionnaire de paquets.
     declare -A all_pkgs_to_remove=()
+    declare -A all_pipx_pkgs_to_remove=()
     while IFS= read -r s; do
       echo -e "${C_INFO}${INSTALL_UNINSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
       # Essayer d'exécuter le script de désinstallation de la stack (ne pas stopper en cas d'erreur)
@@ -317,6 +328,13 @@ uninstall_all() {
       for pkg in $pacman_list $aur_list; do
         if [[ -n "$pkg" ]]; then
           all_pkgs_to_remove["$pkg"]=1
+        fi
+      done
+      # Collecter les packages pipx de cette stack
+      mapfile -t pipx_pkgs < <(collect_pipx_packages_from_stack "$STACKS_DIR/$s")
+      for pkg in "${pipx_pkgs[@]}"; do
+        if [[ -n "$pkg" ]]; then
+          all_pipx_pkgs_to_remove["$pkg"]=1
         fi
       done
       # Supprimer (en complément) les données de la stack
@@ -333,9 +351,17 @@ uninstall_all() {
       fi
     done
     
-    # Supprimer /opt/balorsh/json
-    echo -e "${C_YELLOW}Suppression de /opt/balorsh/json...${C_RESET}"
-    sudo rm -rf /opt/balorsh/json
+    # Désinstaller tous les paquets pipx collectés
+    if [[ ${#all_pipx_pkgs_to_remove[@]} -gt 0 ]]; then
+      echo -e "${C_YELLOW}Désinstallation des paquets pipx...${C_RESET}"
+      for pkg in "${!all_pipx_pkgs_to_remove[@]}"; do
+        remove_pipx_pkg "$pkg"
+      done
+    fi
+    
+    # Supprimer json sous BALOR_OPT_ROOT
+    echo -e "${C_YELLOW}Suppression de $BALOR_OPT_ROOT/json...${C_RESET}"
+    sudo rm -rf "$BALOR_OPT_ROOT/json"
     
     echo ""
     echo -e "${C_GOOD}${INSTALL_UNINSTALL_ALL_COMPLETE}${C_RESET}"
@@ -352,14 +378,14 @@ install_all_except_llm() {
   echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
   echo ""
   local failures=()
-  ask_force_install "Forcer l'installation de toutes les stacks (sauf llm) ? [y/N]: " || true
+  ask_force_install "${INSTALL_FORCE_PROMPT_ALL_EXCEPT_LLM}" || true
 
   # Set up error handling to continue on failures
   trap 'true' ERR
   set +e
 
   if [[ "$FORCE_INSTALL" -eq 1 ]]; then
-    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks (sauf llm).${C_RESET}"
+    echo -e "${C_YELLOW}${INSTALL_FORCE_MODE_ALL_EXCEPT_LLM}${C_RESET}"
     while IFS= read -r s; do
       if [[ "$s" != "llm" ]]; then
         echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
@@ -423,14 +449,14 @@ install_all() {
   local skipped_count=0
   local failures=()
   # Prompt to force install (ignore JSON) or if JSON missing act as forced
-  ask_force_install "Forcer l'installation de toutes les stacks (ignorer le JSON) ? [y/N]: " || true
+  ask_force_install "${INSTALL_FORCE_PROMPT_ALL}" || true
 
   # Set up error handling to continue on failures
   trap 'true' ERR
   set +e
 
   if [[ "$FORCE_INSTALL" -eq 1 ]]; then
-    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation/réinstallation de toutes les stacks.${C_RESET}"
+    echo -e "${C_YELLOW}${INSTALL_FORCE_MODE_ALL}${C_RESET}"
     while IFS= read -r s; do
       echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
       if install_stack "$s"; then
@@ -494,14 +520,14 @@ ask_force_install() {
   FORCE_INSTALL=0
   local json_file="$BALOR_OPT_ROOT/json/stacks_status.json"
   if [[ ! -f "$json_file" ]]; then
-    echo -e "${C_YELLOW}Aucun fichier JSON trouvé ($json_file) — installation complète forcée.${C_RESET}"
+    printf "${C_YELLOW}${INSTALL_NO_JSON_FILE}${C_RESET}\n" "$json_file"
     FORCE_INSTALL=1
     return 0
   fi
 
   # Default prompt if not provided
   if [[ -z "$prompt" ]]; then
-    prompt="Voulez-vous forcer l'installation ? [y/N]: "
+    prompt="${INSTALL_FORCE_PROMPT_DEFAULT}"
   fi
 
   printf "${C_ACCENT1}%s${C_RESET}" "$prompt"
@@ -539,17 +565,60 @@ update_existing_stacks() {
   echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
   echo ""
   
+  # Vérifier et mettre à jour les fichiers racine si nécessaire
+  if [[ -d "$BALOR_OPT_ROOT" ]]; then
+    echo -e "${C_INFO}${INSTALL_CHECKING_ROOT_FILES}${C_RESET}"
+    
+    # Mettre à jour VERSION si différent
+    if [[ -f "$BALOR_ROOT/VERSION" && -f "$BALOR_OPT_ROOT/VERSION" ]]; then
+      if ! cmp -s "$BALOR_ROOT/VERSION" "$BALOR_OPT_ROOT/VERSION"; then
+        echo -e "${C_HIGHLIGHT}${INSTALL_UPDATING_VERSION_FILE}${C_RESET}"
+        sudo cp "$BALOR_ROOT/VERSION" "$BALOR_OPT_ROOT/VERSION"
+        echo -e "${C_GOOD}${INSTALL_VERSION_UPDATED}${C_RESET}"
+      fi
+    elif [[ -f "$BALOR_ROOT/VERSION" && ! -f "$BALOR_OPT_ROOT/VERSION" ]]; then
+      echo -e "${C_HIGHLIGHT}${INSTALL_COPYING_MISSING_VERSION}${C_RESET}"
+      sudo cp "$BALOR_ROOT/VERSION" "$BALOR_OPT_ROOT/VERSION"
+      echo -e "${C_GOOD}${INSTALL_VERSION_COPIED}${C_RESET}"
+    fi
+    
+    # Mettre à jour balorsh si différent
+    if [[ -f "$BALOR_ROOT/balorsh" && -f "$BALOR_OPT_ROOT/balorsh" ]]; then
+      if ! cmp -s "$BALOR_ROOT/balorsh" "$BALOR_OPT_ROOT/balorsh"; then
+        echo -e "${C_HIGHLIGHT}${INSTALL_UPDATING_BALORSH_SCRIPT}${C_RESET}"
+        sudo cp "$BALOR_ROOT/balorsh" "$BALOR_OPT_ROOT/balorsh"
+        sudo chmod +x "$BALOR_OPT_ROOT/balorsh"
+        echo -e "${C_GOOD}${INSTALL_BALORSH_UPDATED}${C_RESET}"
+      fi
+    fi
+    
+    # Mettre à jour banner.txt si présent et différent
+    if [[ -f "$BALOR_ROOT/banner.txt" && -f "$BALOR_OPT_ROOT/banner.txt" ]]; then
+      if ! cmp -s "$BALOR_ROOT/banner.txt" "$BALOR_OPT_ROOT/banner.txt"; then
+        echo -e "${C_HIGHLIGHT}${INSTALL_UPDATING_BANNER}${C_RESET}"
+        sudo cp "$BALOR_ROOT/banner.txt" "$BALOR_OPT_ROOT/banner.txt"
+        echo -e "${C_GOOD}${INSTALL_BANNER_UPDATED}${C_RESET}"
+      fi
+    elif [[ -f "$BALOR_ROOT/banner.txt" && ! -f "$BALOR_OPT_ROOT/banner.txt" ]]; then
+      echo -e "${C_HIGHLIGHT}${INSTALL_COPYING_MISSING_BANNER}${C_RESET}"
+      sudo cp "$BALOR_ROOT/banner.txt" "$BALOR_OPT_ROOT/banner.txt"
+      echo -e "${C_GOOD}${INSTALL_BANNER_COPIED}${C_RESET}"
+    fi
+    
+    echo ""
+  fi
+  
   local updated_count=0
   local skipped_count=0
   local failures=()
-  ask_force_install "Forcer la réinstallation des stacks existantes ? [y/N]: " || true
+  ask_force_install "${INSTALL_FORCE_PROMPT_UPDATE_EXISTING}" || true
 
   # Set up error handling to continue on failures
   trap 'true' ERR
   set +e
 
   if [[ "$FORCE_INSTALL" -eq 1 ]]; then
-    echo -e "${C_YELLOW}Mode FORCER activé : tentative de réinstallation de toutes les stacks (ignore JSON).${C_RESET}"
+    echo -e "${C_YELLOW}${INSTALL_FORCE_MODE_UPDATE}${C_RESET}"
     while IFS= read -r s; do
       echo -e "${C_INFO}Reinstalling ${C_HIGHLIGHT}$s${C_RESET}"
       if install_stack "$s"; then
@@ -608,6 +677,8 @@ update_existing_stacks() {
     echo -e "${C_RED}The following stacks failed to update:${C_RESET}"
     for f in "${failures[@]}"; do echo "  - $f"; done
   fi
+  # Mettre à jour le JSON des stacks après l'opération (chemin normal)
+  update_stacks_json || true
   press_enter_if_enabled
 }
 
@@ -627,7 +698,7 @@ install_missing_stacks() {
   set +e
 
   if [[ "$FORCE_INSTALL" -eq 1 ]]; then
-    echo -e "${C_YELLOW}Mode FORCER activé : tentative d'installation complète (y compris stacks déjà présentes).${C_RESET}"
+    echo -e "${C_YELLOW}${INSTALL_FORCE_MODE_MISSING}${C_RESET}"
     while IFS= read -r s; do
       echo -e "${C_INFO}${INSTALL_STACK_MSG} ${C_HIGHLIGHT}$s${C_RESET}"
       if install_stack "$s"; then
@@ -883,7 +954,8 @@ collect_git_repos_from_install_sh() {
       fi
 
       # Support pip installs using git+https://... or git+ssh://... tokens
-      if [[ "$line" =~ git\+ ]]; then
+      # but skip if it's a pipx install (handled separately)
+      if [[ "$line" =~ git\+ ]] && [[ ! "$line" =~ pipx[[:space:]]+install ]]; then
         # extract tokens like git+https://... or git+ssh://... (stop at space or quote)
         for token in $line; do
           if [[ "$token" == git+* ]]; then
@@ -968,6 +1040,49 @@ collect_pkgs_from_script_commands() {
   for k in "${!pkgs[@]}"; do echo "$k"; done
 }
 
+# Extrait paquets pipx des scripts d'installation
+collect_pipx_packages_from_install_scripts() {
+  local file line
+  declare -A pipx_pkgs=()
+  while IFS= read -r -d '' file; do
+    while IFS= read -r line; do
+      # détecte les occurrences 'pipx install'
+      if grep -qE '\bpipx\b[[:space:]]+install' <<<"$line"; then
+        # Chercher les URLs git dans la ligne
+        if [[ "$line" =~ git\+https://github\.com/[^/]+/([^.]+) ]]; then
+          local pkg_name="${BASH_REMATCH[1]}"
+          pipx_pkgs["$pkg_name"]=1
+        fi
+      fi
+    done < "$file"
+  done < <(find "$STACKS_DIR" -type f -name "install.sh" -print0 2>/dev/null)
+
+  for k in "${!pipx_pkgs[@]}"; do echo "$k"; done
+}
+
+# Extrait paquets pipx d'une stack spécifique
+collect_pipx_packages_from_stack() {
+  local stack_dir="$1"
+  local file="$stack_dir/install.sh"
+  local line
+  declare -A pipx_pkgs=()
+  
+  if [[ -f "$file" ]]; then
+    while IFS= read -r line; do
+      # détecte les occurrences 'pipx install'
+      if grep -qE '\bpipx\b[[:space:]]+install' <<<"$line"; then
+        # Chercher les URLs git dans la ligne
+        if [[ "$line" =~ git\+https://github\.com/[^/]+/([^.]+) ]]; then
+          local pkg_name="${BASH_REMATCH[1]}"
+          pipx_pkgs["$pkg_name"]=1
+        fi
+      fi
+    done < "$file"
+  fi
+
+  for k in "${!pipx_pkgs[@]}"; do echo "$k"; done
+}
+
 # Vérifie si un paquet pacman est installé
 is_pacman_pkg_installed() {
   local pkg="$1"
@@ -980,30 +1095,109 @@ is_pacman_pkg_installed() {
 # Vérifie si un git repo semble installé (heuristique)
 is_git_repo_installed() {
   local url="$1"
-  local name
-  name="$(basename "${url%%.git}")"
+  local url_basename name
+  url_basename="$(basename "${url%%.git}")"
+
+  # Build a list of candidate package/command names to check.
+  # Some repos use names like 'censys-python' while the installed
+  # pipx/pip package/command is 'censys'. Try a few heuristics.
+  local candidates=()
+  candidates+=("$url_basename")
+  # remove common suffix/prefix
+  if [[ "$url_basename" == *-python ]]; then
+    candidates+=("${url_basename%-python}")
+  fi
+  if [[ "$url_basename" == python-* ]]; then
+    candidates+=("${url_basename#python-}")
+  fi
+  # also try part before first dash (e.g. repo 'foo-bar' -> 'foo')
+  if [[ "$url_basename" == *-* ]]; then
+    candidates+=("${url_basename%%-*}")
+  fi
+
+  # unique-ify candidates
+  declare -A _seen=()
+  local uniq_candidates=()
+  for c in "${candidates[@]}"; do
+    [[ -z "$c" ]] && continue
+    if [[ -z "${_seen[$c]}" ]]; then
+      uniq_candidates+=("$c")
+      _seen[$c]=1
+    fi
+  done
 
   # 1) Prefer pip-installed package (explicitly via python -m pip)
-  if python3 -m pip show "$name" >/dev/null 2>&1; then
-    return 0
-  fi
+  for c in "${uniq_candidates[@]}"; do
+    if python3 -m pip show "$c" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
 
-  # 2) If a command with the same name exists in PATH, consider it installed
+  # 2) If a command with a candidate name exists in PATH, consider it installed
   # only if it does not point into local source directories (stacks or ~/.local/src)
-  if command -v "$name" >/dev/null 2>&1; then
-    local cmdpath
-    cmdpath=$(command -v "$name") || true
-    case "$cmdpath" in
-      "$STACKS_DIR"/*|"$HOME/.local/src"/*)
-        return 1
-        ;;
-      *)
-        return 0
-        ;;
-    esac
-  fi
+  for c in "${uniq_candidates[@]}"; do
+    if command -v "$c" >/dev/null 2>&1; then
+      local cmdpath
+      cmdpath=$(command -v "$c") || true
+      case "$cmdpath" in
+        "$STACKS_DIR"/*|"$HOME/.local/src"/*)
+          # ignore commands pointing into local source dirs
+          continue
+          ;;
+        *)
+          return 0
+          ;;
+      esac
+    fi
+  done
 
   # Otherwise, not considered installed
+  return 1
+}
+
+# Vérifie si un paquet pipx est installé
+is_pipx_pkg_installed() {
+  local pkg="$1"
+
+  # Vérifier si pipx est disponible
+  if ! command -v pipx >/dev/null 2>&1; then
+    return 1
+  fi
+
+  # Some repos use names like 'censys-python' while the installed
+  # pipx/pip package/command is 'censys'. Try a few heuristics.
+  local pkg_variants=("$pkg")
+
+  # Add common name mappings
+  case "$pkg" in
+    censys-python)
+      pkg_variants+=("censys")
+      ;;
+    theHarvester)
+      pkg_variants+=("theharvester")
+      ;;
+  esac
+
+  # Try each variant
+  for variant in "${pkg_variants[@]}"; do
+    # Utiliser pipx list pour vérifier si le paquet est installé
+    if pipx list --short | grep -q "^${variant} "; then
+      return 0
+    fi
+
+    # Sinon, essayer de voir si la commande existe dans PATH
+    if command -v "$variant" >/dev/null 2>&1; then
+      local cmdpath
+      cmdpath=$(command -v "$variant") || true
+      case "$cmdpath" in
+        "$HOME/.local/pipx"/*)
+          # C'est probablement installé via pipx
+          return 0
+          ;;
+      esac
+    fi
+  done
+
   return 1
 }
 
@@ -1043,6 +1237,9 @@ check_installed_tools() {
 
   # collect git repos
   mapfile -t git_urls < <(collect_git_repos_from_install_sh)
+
+  # collect pipx packages
+  mapfile -t pipx_pkgs < <(collect_pipx_packages_from_install_scripts)
 
   local total_expected=0
   local installed_count=0
@@ -1116,12 +1313,23 @@ check_installed_tools() {
     fi
   done
 
+  # check pipx packages
+  for pkg in "${pipx_pkgs[@]}"; do
+    ((total_expected++))
+    if is_pipx_pkg_installed "$pkg"; then
+      pipx_found+=("$pkg")
+      ((installed_count++))
+    else
+      pipx_missing+=("$pkg")
+    fi
+  done
+
   echo
   echo "${INSTALL_CHECK_SUMMARY}"
   echo "  ${INSTALL_CHECK_EXPECTED} $total_expected"
   echo "  ${INSTALL_CHECK_INSTALLED} $installed_count"
   echo "  ${INSTALL_CHECK_MISSING} $((total_expected - installed_count))"
-  echo "  Protégés: $protected_count"
+  echo "  ${INSTALL_CHECK_PROTECTED} $protected_count"
   echo
 
   echo "${INSTALL_CHECK_DETAILS}"
@@ -1161,13 +1369,13 @@ check_installed_tools() {
   }
 
   # PACMAN table
-  print_table "PACMAN" "Installé" "Désinstallé" "Protégé" pacman_found pacman_missing pacman_protected
+  print_table "${INSTALL_CHECK_TABLE_PACMAN}" "${INSTALL_CHECK_TABLE_INSTALLED}" "${INSTALL_CHECK_TABLE_MISSING}" "${INSTALL_CHECK_TABLE_PROTECTED}" pacman_found pacman_missing pacman_protected
 
   # AUR table
-  print_table "AUR" "Installé" "Désinstallé" "Protégé" aur_found aur_missing aur_protected
+  print_table "${INSTALL_CHECK_TABLE_AUR}" "${INSTALL_CHECK_TABLE_INSTALLED}" "${INSTALL_CHECK_TABLE_MISSING}" "${INSTALL_CHECK_TABLE_PROTECTED}" aur_found aur_missing aur_protected
 
   # GIT/PIPX table
-  print_table "GIT/PIPX" "Installé" "Désinstallé" "Protégé" git_pipx_found git_pipx_missing git_pipx_protected
+  print_table "${INSTALL_CHECK_TABLE_GIT_PIPX}" "${INSTALL_CHECK_TABLE_INSTALLED}" "${INSTALL_CHECK_TABLE_MISSING}" "${INSTALL_CHECK_TABLE_PROTECTED}" git_pipx_found git_pipx_missing git_pipx_protected
 
   echo
   echo "${INSTALL_CHECK_TIPS}"

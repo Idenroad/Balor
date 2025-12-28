@@ -18,6 +18,8 @@ ESSENTIAL_PACKAGES=(
   "rpcbind"
   "freerdp"
   "python-pipx"
+  "paru"
+  "jq"
   "ollama"
 )
 
@@ -103,6 +105,44 @@ remove_pkg() {
   fi
 }
 
+# Supprimer un package pipx
+remove_pipx_pkg() {
+  local pkg="$1"
+
+  # Vérifier si pipx est disponible
+  if ! command -v pipx >/dev/null 2>&1; then
+    echo "pipx not available, skipping pipx package removal"
+    return
+  fi
+
+  # Some repos use names like 'censys-python' while the installed
+  # pipx/pip package/command is 'censys'. Try a few heuristics.
+  local pkg_variants=("$pkg")
+
+  # Add common name mappings
+  case "$pkg" in
+    censys-python)
+      pkg_variants+=("censys")
+      ;;
+    theHarvester)
+      pkg_variants+=("theharvester")
+      ;;
+  esac
+
+  # Try each variant
+  for variant in "${pkg_variants[@]}"; do
+    if pipx list --short | grep -q "^${variant} "; then
+      printf "$MSG_PKG_REMOVING\n" "$pkg"
+      pipx uninstall "$variant" || {
+        printf "$MSG_PKG_REMOVE_FAILED\n" "$pkg"
+      }
+      return
+    fi
+  done
+
+  printf "$MSG_PKG_NOT_INSTALLED\n" "$pkg"
+}
+
 # Lire packages.txt d'une stack
 # Format:
 #   pacman:aircrack-ng
@@ -164,18 +204,32 @@ hex_to_ansi_fg() {
 
 # Variables de couleur communes (palette du menu)
 # Palette fournie : #751EE9, #9075E2, #06FB06, #25FD9D
-C_RESET="\033[0m"
-C_BOLD="\033[1m"
+# Use real escape sequences for reset/bold; color functions produce real escapes
+C_RESET=$'\033[0m'
+C_BOLD=$'\033[1m'
 C_ACCENT1="$(hex_to_ansi_fg '#751EE9')"
 C_ACCENT2="$(hex_to_ansi_fg '#9075E2')"
 C_GOOD="$(hex_to_ansi_fg '#06FB06')"
 C_HIGHLIGHT="$(hex_to_ansi_fg '#25FD9D')"
 # couleur d'ombre/étiquette subtile (effet atténué)
-C_SHADOW="\033[2m"
+# couleur d'ombre/étiquette subtile (effet atténué)
+C_SHADOW=$'\033[2m'
 # Couleurs additionnelles pour les messages
 C_INFO="$(hex_to_ansi_fg '#25FD9D')"   # Cyan/turquoise pour info
 C_RED="\033[91m"                        # Rouge pour erreurs
 C_YELLOW="\033[93m"                     # Jaune pour warnings
+
+# Fallback defaults if hex_to_ansi_fg failed or returned empty
+if [[ -z "${C_RESET:-}" ]]; then C_RESET=$'\033[0m'; fi
+if [[ -z "${C_BOLD:-}" ]]; then C_BOLD=$'\033[1m'; fi
+if [[ -z "${C_ACCENT1:-}" ]]; then C_ACCENT1=$'\033[36m'; fi
+if [[ -z "${C_ACCENT2:-}" ]]; then C_ACCENT2=$'\033[35m'; fi
+if [[ -z "${C_GOOD:-}" ]]; then C_GOOD=$'\033[32m'; fi
+if [[ -z "${C_HIGHLIGHT:-}" ]]; then C_HIGHLIGHT=$'\033[36m'; fi
+if [[ -z "${C_SHADOW:-}" ]]; then C_SHADOW=$'\033[2m'; fi
+if [[ -z "${C_INFO:-}" ]]; then C_INFO=$'\033[36m'; fi
+if [[ -z "${C_RED:-}" ]]; then C_RED=$'\033[91m'; fi
+if [[ -z "${C_YELLOW:-}" ]]; then C_YELLOW=$'\033[93m'; fi
 
 export C_RESET C_BOLD C_ACCENT1 C_ACCENT2 C_GOOD C_HIGHLIGHT C_SHADOW C_INFO C_RED C_YELLOW
 
@@ -184,22 +238,43 @@ remove_stack_data_dir() {
   local stack="$1"
   local data_dir="$BALOR_OPT_ROOT/data/$stack"
   
-  # Si on est en mode "supprimer toutes les données" (désinstallation complète)
-  if [[ "${UNINSTALL_ALL_DATA:-false}" == "true" ]]; then
-    if [[ -d "$data_dir" ]]; then
-      printf "${C_YELLOW}${UNINSTALL_DATA_DIR_REMOVING}${C_RESET}\n" "$data_dir"
-      sudo rm -rf "$data_dir"
+  # If UNINSTALL_ALL_DATA is defined (set by uninstall_all flow), respect it
+  if [[ -v UNINSTALL_ALL_DATA ]]; then
+    if [[ "${UNINSTALL_ALL_DATA}" == "true" ]]; then
+      if [[ -d "$data_dir" ]]; then
+        printf "${C_YELLOW}${UNINSTALL_DATA_DIR_REMOVING}${C_RESET}\n" "$data_dir"
+        # Try removing without sudo first (useful for tests or when running as owner)
+        if rm -rf "$data_dir" 2>/dev/null; then
+          :
+        else
+          sudo rm -rf "$data_dir"
+        fi
+      fi
+    else
+      # Explicitly asked NOT to remove data during global uninstall: skip without prompting per-stack
+      if [[ -d "$data_dir" ]]; then
+        echo -e "${C_INFO}${UNINSTALL_DATA_DIR_SKIPPED}${C_RESET}"
+      fi
     fi
     return
   fi
-  
+
   # Mode individuel : demander confirmation
   if [[ -d "$data_dir" ]]; then
     printf "${UNINSTALL_DATA_DIR_PROMPT}" "$stack" "$data_dir" "[o/N]"
-    read -r choice
+    if [[ -e /dev/tty ]]; then
+      IFS= read -r choice </dev/tty
+    else
+      read -r choice
+    fi
     if [[ "$choice" =~ ^[oOyY]$ ]]; then
       printf "${C_YELLOW}${UNINSTALL_DATA_DIR_REMOVING}${C_RESET}\n" "$data_dir"
-      sudo rm -rf "$data_dir"
+      # Try removing without sudo first (useful for tests or when running as owner)
+      if rm -rf "$data_dir" 2>/dev/null; then
+        :
+      else
+        sudo rm -rf "$data_dir"
+      fi
     else
       echo -e "${C_INFO}${UNINSTALL_DATA_DIR_SKIPPED}${C_RESET}"
     fi
@@ -243,3 +318,8 @@ press_enter_if_enabled() {
     fi
   fi
 }
+
+# --- Gestion des Modelfiles (VERSION <-> JSON) ---------------------------------
+# Mettre à jour JSON des modèles LLM (Modelfile.*)
+
+# Vérifier les versions entre VERSION et le JSON, et recréer les modèles Ollama si besoin

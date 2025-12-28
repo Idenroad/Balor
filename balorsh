@@ -6,7 +6,7 @@ STACKS_DIR="${STACKS_DIR:-$BALORSH_ROOT/stacks}"
 VERSION_FILE="${VERSION_FILE:-$BALORSH_ROOT/VERSION}"
 COMMON_FILE="${COMMON_FILE:-$BALORSH_ROOT/lib/common.sh}"
 I18N_FILE="${I18N_FILE:-$BALORSH_ROOT/lib/i18n.sh}"
-BALORSH_DATA_DIR="/opt/balorsh/data"
+BALORSH_DATA_DIR="${BALORSH_DATA_DIR:-${BALOR_OPT_ROOT:-/opt/balorsh}/data}"
 
 # Load i18n if available
 [[ -f "$I18N_FILE" ]] && source "$I18N_FILE"
@@ -14,11 +14,11 @@ BALORSH_DATA_DIR="/opt/balorsh/data"
 # Ensure data dir exists (created by installer). If missing, instruct user and exit.
 if [[ ! -d "$BALORSH_DATA_DIR" ]]; then
   cat >&2 <<EOF
-${BALORSH_DATA_DIR_MISSING:-[!] Le dossier /opt/balorsh/data est manquant.}
+${BALORSH_DATA_DIR_MISSING:-[!] Le dossier $BALORSH_DATA_DIR est manquant.}
 ${BALORSH_RUN_INSTALLER:-Exécutez l'installateur pour le créer :}
   sudo bash install.sh
 ${BALORSH_OR_CREATE_MANUALLY:-Ou créez-le manuellement :}
-  sudo mkdir -p /opt/balorsh/data && sudo chown \${SUDO_USER:-\$USER}:\${SUDO_USER:-\$USER} /opt/balorsh/data && sudo chmod 775 /opt/balorsh/data
+  sudo mkdir -p "$BALORSH_DATA_DIR" && sudo chown \${SUDO_USER:-\$USER}:\${SUDO_USER:-\$USER} "$BALORSH_DATA_DIR" && sudo chmod 775 "$BALORSH_DATA_DIR"
 EOF
   exit 1
 fi

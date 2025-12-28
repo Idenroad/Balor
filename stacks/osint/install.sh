@@ -21,6 +21,22 @@ for a in $AUR_PKGS; do
   install_aur_pkg "$a"
 done
 
+# Assurer que pipx est présent puis installer certains outils via pipx
+if ! command -v pipx >/dev/null 2>&1; then
+  echo "pipx introuvable — tentative d'installation via pacman..."
+  sudo pacman -S --needed --noconfirm python-pipx || true
+fi
+
+if command -v pipx >/dev/null 2>&1; then
+  echo "Installation via pipx: censys, theHarvester"
+  # installer censys
+  pipx install git+https://github.com/censys/censys-python.git --force || echo "pipx install censys failed"
+  # installer theHarvester
+  pipx install git+https://github.com/laramies/theHarvester.git --force || echo "pipx install theHarvester failed"
+else
+  echo "pipx non disponible — ignorer l'installation via pipx (installez python-pipx et relancez)."
+fi
+
 echo "$OSINT_INSTALL_JRE17"
 if ! sudo pacman -S --needed --noconfirm jre17-openjdk; then
   echo "$OSINT_JRE17_FAILED"
@@ -64,3 +80,5 @@ echo "$OSINT_MALTEGO_PRECONFIGURED"
 echo "$OSINT_MALTEGO_ALTERNATIVE"
 printf "$OSINT_MALTEGO_CMD\n" "$JAVA17_HOME"
 echo ""
+
+## recon-ng installer removed per user request

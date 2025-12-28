@@ -19,12 +19,18 @@ echo ""
 packages_data=$(read_stack_packages "$SCRIPT_DIR")
 IFS='|' read -r pacman_list aur_list <<< "$packages_data"
 
-# Combiner tous les paquets (pacman + AUR) pour la suppression
-all_pkgs="$pacman_list $aur_list"
+# Désinstaller d'abord les paquets AUR (plugins), puis les paquets pacman.
+# Cela garantit que les plugins de `remmina` sont retirés avant `remmina` lui-même.
+if [[ -n "$aur_list" ]]; then
+  echo "$REMOTE_UNINSTALL_REMOVING (AUR)"
+  for pkg in $aur_list; do
+    remove_pkg "$pkg"
+  done
+fi
 
-if [[ -n "$all_pkgs" ]]; then
-  echo "$REMOTE_UNINSTALL_REMOVING"
-  for pkg in $all_pkgs; do
+if [[ -n "$pacman_list" ]]; then
+  echo "$REMOTE_UNINSTALL_REMOVING (pacman)"
+  for pkg in $pacman_list; do
     remove_pkg "$pkg"
   done
 fi

@@ -130,13 +130,22 @@ sleep 5
 echo "[LLM] Copie des Modelfiles..."
 if [[ -d "$MODELS_SOURCE_DIR" ]]; then
   # Copier les Modelfiles et adapter le chemin du modèle actif
+  # S'assurer que ACTIVE_MODEL a une valeur même si $MODELS_CONFIG est vide
+  if [[ -z "${ACTIVE_MODEL:-}" ]]; then
+    if [[ -f "$MODELS_DIR/active_model.txt" ]]; then
+      ACTIVE_MODEL=$(cat "$MODELS_DIR/active_model.txt" 2>/dev/null || true)
+    fi
+    if [[ -z "${ACTIVE_MODEL:-}" ]]; then
+      ACTIVE_MODEL=$(ls -1 "$MODELS_DIR" 2>/dev/null | grep -E '\.gguf$' | head -n1 || true)
+    fi
+  fi
   for src_modelfile in "$MODELS_SOURCE_DIR"/Modelfile.*; do
     if [[ -f "$src_modelfile" ]]; then
       persona=$(basename "$src_modelfile" | sed 's/^Modelfile\.//')
       dest_modelfile="$MODELFILES_DIR/Modelfile.$persona"
       
-      # Remplacer le chemin du modèle par le modèle actif
-      sed "s|FROM /opt/balorsh/data/llm/models/.*\.gguf|FROM /opt/balorsh/data/llm/models/$ACTIVE_MODEL|g" \
+      # Remplacer le chemin du modèle par le modèle actif (protéger expansion si vide)
+      sed "s|FROM /opt/balorsh/data/llm/models/.*\\.gguf|FROM /opt/balorsh/data/llm/models/${ACTIVE_MODEL:-senecallm-q4_k_m.gguf}|g" \
         "$src_modelfile" > "$dest_modelfile"
     fi
   done
@@ -154,6 +163,9 @@ for modelfile in "$MODELFILES_DIR"/Modelfile.*; do
     ollama create "balor:$persona" -f "$modelfile" 2>/dev/null || true
   fi
 done
+
+# Mettre à jour le JSON des modèles pour refléter l'état actuel
+update_models_json || true
 
 # Créer le dossier data pour marquer l'installation
 ensure_stack_data_dir "llm"

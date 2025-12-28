@@ -9,17 +9,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$ROOT_DIR/lib/common.sh"
 
-# alias locaux pour la lisibilité
-C_RESET="${C_RESET:-\033[0m}"
-C_BOLD="${C_BOLD:-\033[1m}"
-# palette: accent1/accent2/green/highlight
-C_ACCENT1="${C_ACCENT1:-\033[38;2;117;30;233m}"
-C_ACCENT2="${C_ACCENT2:-\033[38;2;144;117;226m}"
-C_GOOD="${C_GOOD:-\033[38;2;6;251;6m}"
-C_HIGHLIGHT="${C_HIGHLIGHT:-\033[38;2;37;253;157m}"
-C_RED="\e[31m"
-C_YELLOW="\e[33m"
-C_INFO="\e[36m"
+# Use centralized palette from lib/common.sh; map legacy local names only
+# (do not redefine C_ACCENT*/C_GOOD/C_HIGHLIGHT here)
+MAGENTA=${MAGENTA:-${C_ACCENT2:-$C_ACCENT1}}
+NC=${NC:-$C_RESET}
+GREEN=${GREEN:-${C_GOOD}}
+BLUE=${BLUE:-${C_ACCENT2:-$C_ACCENT1}}
+CYAN=${CYAN:-${C_INFO}}
+YELLOW=${YELLOW:-${C_YELLOW}}
+RED=${RED:-${C_RED}}
 
 # Variables globales
 : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
@@ -128,20 +126,58 @@ password_list_wordlists() {
       ((index++))
     done < <(find "$current_dir" -maxdepth 1 -type d ! -path "$current_dir" 2>/dev/null | sort)
     
-    # Lister les fichiers
+    # Lister les fichiers avec pagination
     echo ""
     echo -e "${C_INFO}=== ${PASSWORD_FILES_HERE} ===${C_RESET}"
+    # Collect files into array
+    local files=()
+    while IFS= read -r f; do
+      files+=("$f")
+    done < <(find "$current_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort)
+
+    local page_size=10
+    local page=0
+    local total_files=${#files[@]}
+    local total_pages=0
+    if (( total_files > 0 )); then
+      total_pages=$(( (total_files + page_size - 1) / page_size ))
+    fi
+
     local file_index=$index
     declare -A file_map
-    
-    while IFS= read -r file; do
-      local filename=$(basename "$file")
-      local filesize=$(du -h "$file" 2>/dev/null | cut -f1)
-      local linecount=$(wc -l < "$file" 2>/dev/null)
-      echo -e "${C_INFO}  $file_index) 📄 $filename${C_RESET} - ${C_SHADOW}$filesize, $linecount lignes${C_RESET}"
-      file_map[$file_index]="$file"
-      ((file_index++))
-    done < <(find "$current_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort | head -30)
+    if (( total_files == 0 )); then
+      echo -e "  ${C_SHADOW}${PASSWORD_NO_FILES_HERE}${C_RESET}"
+    else
+      while true; do
+        # compute slice
+        local start=$(( page * page_size ))
+        local end=$(( start + page_size - 1 ))
+        if (( end >= total_files )); then
+          end=$(( total_files - 1 ))
+        fi
+
+        echo -e "${C_SHADOW}${PASSWORD_PAGE} $((page+1))/${total_pages}${C_RESET}"
+        local displayed_index=$file_index
+        declare -A file_map
+        for ((i=start;i<=end;i++)); do
+          local file_path="${files[i]}"
+          local filename=$(basename "$file_path")
+          local filesize=$(du -h "$file_path" 2>/dev/null | cut -f1)
+          local linecount=$(wc -l < "$file_path" 2>/dev/null || true)
+          echo -e "${C_INFO}  $displayed_index) 📄 $filename${C_RESET} - ${C_SHADOW}$filesize, $linecount lignes${C_RESET}"
+          file_map[$displayed_index]="$file_path"
+          ((displayed_index++))
+        done
+
+        # If multiple pages, show navigation hints and accept commands
+        echo ""
+        if (( total_pages > 1 )); then
+          echo -ne "${C_ACCENT1}${PASSWORD_PAGE_NAVIGATION} [n/p] - "
+          echo -ne "${PASSWORD_CHOICE_PROMPT} ${C_RESET}"
+        fi
+        break
+      done
+    fi
     
     # Menu de navigation
     echo ""
@@ -150,6 +186,11 @@ password_list_wordlists() {
       echo -e "  ${C_YELLOW}0) ⬆️  ${PASSWORD_GO_UP}${C_RESET}"
     fi
     echo -e "  ${C_YELLOW}r) 🏠 ${PASSWORD_RETURN_ROOT}${C_RESET}"
+    echo -e "  ${C_YELLOW}v) 🔍 View file path${C_RESET}"
+    if (( total_pages > 1 )); then
+      echo -e "  ${C_YELLOW}n) ➡️  ${PASSWORD_NEXT_PAGE}${C_RESET}"
+      echo -e "  ${C_YELLOW}p) ⬅️  ${PASSWORD_PREV_PAGE}${C_RESET}"
+    fi
     echo -e "  ${C_YELLOW}q) ❌ ${PASSWORD_QUIT_EXPLORER}${C_RESET}"
     echo ""
     echo -ne "${C_ACCENT1}${PASSWORD_CHOICE_PROMPT} ${C_RESET}"
@@ -167,6 +208,38 @@ password_list_wordlists() {
       r)
         current_dir="$WORDLISTS_DIR"
         ;;
+      n)
+        if (( total_pages > 1 )); then
+          if (( page < total_pages - 1 )); then
+            page=$((page+1))
+          else
+            page=0
+          fi
+        fi
+        ;;
+      p)
+        if (( total_pages > 1 )); then
+          if (( page > 0 )); then
+            page=$((page-1))
+          else
+            page=$((total_pages-1))
+          fi
+        fi
+        ;;
+      v)
+        # View full path for a file number without leaving explorer
+        echo -ne "${C_ACCENT1}${PASSWORD_CHOICE_PROMPT} (file number): ${C_RESET}"
+        read -r view_choice
+        if [[ "$view_choice" =~ ^[0-9]+$ ]] && [[ -n "${file_map[$view_choice]:-}" ]]; then
+          echo ""
+          echo -e "${C_INFO}${PASSWORD_FILE_SELECTED} ${file_map[$view_choice]}${C_RESET}"
+          echo ""
+          read -p "Appuyez sur Entrée pour continuer..."
+        else
+          echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
+          sleep 1
+        fi
+        ;;
       *)
         if [[ -n "${dir_map[$choice]}" ]]; then
           current_dir="${dir_map[$choice]}"
@@ -176,8 +249,16 @@ password_list_wordlists() {
           echo ""
           read -p "Appuyez sur Entrée pour continuer..." 
         else
-          echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
-          sleep 1
+          # If user entered a numeric choice that might fall into paged files mapping
+          if [[ "$choice" =~ ^[0-9]+$ ]] && [[ -n "${file_map[$choice]:-}" ]]; then
+            echo ""
+            echo -e "${C_INFO}${PASSWORD_FILE_SELECTED} ${file_map[$choice]}${C_RESET}"
+            echo ""
+            read -p "Appuyez sur Entrée pour continuer..." 
+          else
+            echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}"
+            sleep 1
+          fi
         fi
         ;;
     esac
@@ -234,24 +315,62 @@ password_select_wordlist() {
           ((dir_index++))
         done < <(find "$browse_dir" -maxdepth 1 -type d ! -path "$browse_dir" 2>/dev/null | sort)
         
-        # Fichiers dans le répertoire courant
-        local file_index=$dir_index
-        declare -A file_map
-        echo "" >&2
-        echo -e "${C_INFO}${PASSWORD_FILES_HERE}${C_RESET}" >&2
-        while IFS= read -r file; do
-          local filename=$(basename "$file")
-          local filesize=$(du -h "$file" 2>/dev/null | cut -f1)
-          echo -e "${C_GOOD}  $file_index) 📄 $filename${C_RESET} ${C_SHADOW}($filesize)${C_RESET}" >&2
-          file_map[$file_index]="$file"
-          ((file_index++))
-        done < <(find "$browse_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort)
-        
+        # Fichiers dans le répertoire courant (pagination)
+          local file_index=$dir_index
+          declare -A file_map
+          echo "" >&2
+          echo -e "${C_INFO}${PASSWORD_FILES_HERE}${C_RESET}" >&2
+
+          local files_in_dir=()
+          while IFS= read -r f; do
+            files_in_dir+=("$f")
+          done < <(find "$browse_dir" -maxdepth 1 -type f \( -name "*.txt" -o -name "*.lst" \) 2>/dev/null | sort)
+
+          # page variable persists across loop iterations so users can navigate
+          if [[ -z "${_pw_page_set:-}" ]]; then
+            page=0
+            _pw_page_set=1
+          fi
+
+          local page_size=10
+          local total_files=${#files_in_dir[@]}
+          local total_pages=0
+          if (( total_files > 0 )); then
+            total_pages=$(( (total_files + page_size - 1) / page_size ))
+          fi
+
+          if (( total_files == 0 )); then
+            echo -e "  ${C_SHADOW}${PASSWORD_NO_FILES_HERE}${C_RESET}" >&2
+          else
+            # display current page
+            local start=$(( page * page_size ))
+            local end=$(( start + page_size - 1 ))
+            if (( end >= total_files )); then
+              end=$(( total_files - 1 ))
+            fi
+
+            echo -e "${C_SHADOW}${PASSWORD_PAGE} $((page+1))/${total_pages}${C_RESET}" >&2
+            local displayed_index=$file_index
+            for ((i=start;i<=end;i++)); do
+              local fpath="${files_in_dir[i]}"
+              local fname=$(basename "$fpath")
+              local fsize=$(du -h "$fpath" 2>/dev/null | cut -f1)
+              echo -e "${C_GOOD}  $displayed_index) 📄 $fname${C_RESET} ${C_SHADOW}($fsize)${C_RESET}" >&2
+              file_map[$displayed_index]="$fpath"
+              ((displayed_index++))
+            done
+          fi
+
         echo "" >&2
         if [[ "$browse_dir" != "$WORDLISTS_DIR" ]]; then
           echo -e "  ${C_YELLOW}0) ${PASSWORD_GO_UP}${C_RESET}" >&2
         fi
         echo -e "  ${C_YELLOW}c) ${PASSWORD_WORDLIST_CUSTOM_PATH}${C_RESET}" >&2
+        echo -e "  ${C_YELLOW}v) 🔍 ${PASSWORD_PAGE_NAVIGATION}${C_RESET}" >&2
+        if (( total_pages > 1 )); then
+          echo -e "  ${C_YELLOW}n) ${PASSWORD_NEXT_PAGE}${C_RESET}" >&2
+          echo -e "  ${C_YELLOW}p) ${PASSWORD_PREV_PAGE}${C_RESET}" >&2
+        fi
         echo -e "  ${C_YELLOW}q) ${PASSWORD_QUIT_EXPLORER}${C_RESET}" >&2
         echo "" >&2
         echo -ne "${C_ACCENT1}${PASSWORD_CHOOSE_OPTION}: ${C_RESET}" >&2
@@ -263,15 +382,50 @@ password_select_wordlist() {
             ;;
           0)
             browse_dir=$(dirname "$browse_dir")
+            page=0
+            _pw_page_set=1
             ;;
           c)
             echo -ne "${C_ACCENT1}${PASSWORD_OPT_CUSTOM_FILE} ${C_RESET}" >&2
             read -r selected
             break
             ;;
+          v)
+            echo -ne "${C_ACCENT1}${PASSWORD_CHOICE_PROMPT} (file number): ${C_RESET}" >&2
+            read -r view_choice
+            if [[ "$view_choice" =~ ^[0-9]+$ ]] && [[ -n "${file_map[$view_choice]:-}" ]]; then
+              echo "" >&2
+              echo -e "${C_INFO}${PASSWORD_FILE_SELECTED} ${file_map[$view_choice]}${C_RESET}" >&2
+              echo "" >&2
+              echo -ne "Appuyez sur Entrée pour continuer..." >&2
+              read -r _
+            else
+              echo -e "${C_RED}${PASSWORD_INVALID_CHOICE}${C_RESET}" >&2
+            fi
+            ;;
+          n)
+            if (( total_pages > 1 )); then
+              if (( page < total_pages - 1 )); then
+                page=$((page+1))
+              else
+                page=0
+              fi
+            fi
+            ;;
+          p)
+            if (( total_pages > 1 )); then
+              if (( page > 0 )); then
+                page=$((page-1))
+              else
+                page=$((total_pages-1))
+              fi
+            fi
+            ;;
           *)
             if [[ -n "${dir_map[$browse_choice]:-}" ]]; then
               browse_dir="${dir_map[$browse_choice]}"
+              page=0
+              _pw_page_set=1
             elif [[ -n "${file_map[$browse_choice]:-}" ]]; then
               selected="${file_map[$browse_choice]}"
               break

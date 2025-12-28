@@ -1,5 +1,5 @@
 # Password Stack - Balor
-#stack 1.0
+#stack 1.5
 
 pacman:hashcat
 pacman:hcxkeys

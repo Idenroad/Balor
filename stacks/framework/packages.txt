@@ -1,6 +1,6 @@
 # Framework stack - Balor
-#stack 1.1
+#stack 1.3
 
 aur:burpsuite
-pacman:metasploit
+aur:metasploit-git
 pacman:exploitdb

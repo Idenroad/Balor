@@ -410,6 +410,24 @@ SYSTEM You are Seneca, a cyber threat intelligence analyst. Track APT groups, an
 - `/opt/balorsh/data/llm/modelfiles/Modelfile.*`
   - Définitions des personas (adaptées au modèle actif)
 
+### JSON d'état des Modelfiles
+
+La stack LLM maintient également un fichier JSON récapitulatif des Modelfiles et de leurs versions :
+
+- Emplacement: `/opt/balorsh/json/models_status.json`
+- Contenu: champs `last_update` et un objet `models` listant chaque persona avec sa `version` et un booléen `installed`.
+
+Ce JSON est mis à jour par la fonction `update_models_json()` présente dans `lib/common.sh` lors des opérations d'installation/entretien. Lorsqu'une différence de version est détectée entre le fichier `VERSION` du dépôt et l'entrée correspondante dans le JSON, Balor tentera de recréer automatiquement les modèles Ollama en utilisant la logique de `check_and_recreate_models_if_needed()` :
+
+1. Lire la version déclarée dans `VERSION` (ligne `Modelfile.<persona>:<version>`).
+2. Comparer avec la valeur stockée dans `/opt/balorsh/json/models_status.json`.
+3. Si différente, recréer le Modelfile adapté au modèle `active_model.txt` et exécuter `ollama rm` puis `ollama create` pour recréer le modèle `balor:<persona>`.
+4. Mettre à jour le JSON via `update_models_json()`.
+
+Remarques:
+
+- Si un Modelfile n'est pas déclaré dans `VERSION`, il est exclu du JSON (par conception).
+- Le JSON permet aux interfaces non interactives (scripts, UI) de connaître l'état des personas sans interroger Ollama à chaque fois.
 ### Ajouter un modèle manuellement
 
 ```bash

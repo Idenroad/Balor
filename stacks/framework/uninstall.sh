@@ -28,6 +28,14 @@ if [[ -n "$all_pkgs" ]]; then
   done
 fi
 
+# Remove balorcve installed via pipx if present
+if command -v pipx >/dev/null 2>&1; then
+  if pipx list 2>/dev/null | grep -q 'balorcve'; then
+    echo "[Framework] Uninstalling balorcve (pipx)..."
+    pipx uninstall balorcve || true
+  fi
+fi
+
 echo ""
 echo "=========================================="
 echo "$FRAMEWORK_UNINSTALL_COMPLETE"

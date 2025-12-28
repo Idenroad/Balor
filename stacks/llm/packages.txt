@@ -1,6 +1,6 @@
 # LLM stack - Balor
-#stack 0.8
+#stack 1.0
 
 aur:ollama
-pacman:curl
-pacman:dolphin
+
+

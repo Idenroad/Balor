@@ -9,18 +9,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$ROOT_DIR/lib/common.sh"
 
-# alias locaux pour la lisibilité
-C_RESET="${C_RESET:-\033[0m}"
-C_BOLD="${C_BOLD:-\033[1m}"
-# palette: accent1/accent2/green/highlight
-C_ACCENT1="${C_ACCENT1:-\033[38;2;117;30;233m}"
-C_ACCENT2="${C_ACCENT2:-\033[38;2;144;117;226m}"
-C_GOOD="${C_GOOD:-\033[38;2;6;251;6m}"
-C_HIGHLIGHT="${C_HIGHLIGHT:-\033[38;2;37;253;157m}"
-C_SHADOW="${C_SHADOW:-\033[38;2;128;128;128m}"
-C_RED="\e[31m"
-C_YELLOW="\e[33m"
-C_INFO="\e[36m"
+# Use centralized palette from lib/common.sh; map legacy local names only
+# (do not redefine C_ACCENT*/C_GOOD/C_HIGHLIGHT here)
+MAGENTA=${MAGENTA:-${C_ACCENT2:-$C_ACCENT1}}
+NC=${NC:-$C_RESET}
+GREEN=${GREEN:-${C_GOOD}}
+BLUE=${BLUE:-${C_ACCENT2:-$C_ACCENT1}}
+CYAN=${CYAN:-${C_INFO}}
+YELLOW=${YELLOW:-${C_YELLOW}}
+RED=${RED:-${C_RED}}
 
 # Variables globales
 : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
@@ -116,7 +113,7 @@ prompt_ssh_info() {
   
   echo -ne "${C_ACCENT1}Port SSH [22]: ${C_RESET}"
   read -r port
-  port="${port:-22}"
+  local port="${port:-22}"
   
   if ! validate_port "$port"; then
     echo -e "${C_RED}✗ Port invalide (doit être entre 1 et 65535)${C_RESET}"
@@ -131,7 +128,7 @@ prompt_ssh_info() {
     return 1
   fi
   
-  password=$(read_password "Mot de passe (optionnel, laissez vide pour authentification par clé): ")
+  local password=$(read_password "Mot de passe (optionnel, laissez vide pour authentification par clé): ")
   
   # Exporte les variables pour utilisation
   export REMOTE_TARGET="$target"
@@ -155,7 +152,7 @@ prompt_rdp_info() {
   
   echo -ne "${C_ACCENT1}Port RDP [3389]: ${C_RESET}"
   read -r port
-  port="${port:-3389}"
+  local port="${port:-3389}"
   
   if ! validate_port "$port"; then
     echo -e "${C_RED}✗ Port invalide${C_RESET}"
@@ -168,7 +165,7 @@ prompt_rdp_info() {
   echo -ne "${C_ACCENT1}Domaine (optionnel): ${C_RESET}"
   read -r domain
   
-  password=$(read_password "Mot de passe: ")
+  local password=$(read_password "Mot de passe: ")
   
   export REMOTE_TARGET="$target"
   export REMOTE_PORT="$port"
@@ -228,11 +225,11 @@ prompt_nfs_info() {
   
   echo -ne "${C_ACCENT1}Point de montage local [/mnt/nfs]: ${C_RESET}"
   read -r mount_point
-  mount_point="${mount_point:-/mnt/nfs}"
+  local mount_point="${mount_point:-/mnt/nfs}"
   
   echo -ne "${C_ACCENT1}Version NFS [4]: ${C_RESET}"
   read -r nfs_version
-  nfs_version="${nfs_version:-4}"
+  local nfs_version="${nfs_version:-4}"
   
   echo -ne "${C_ACCENT1}Options de montage (optionnel, ex: rw,sync): ${C_RESET}"
   read -r options

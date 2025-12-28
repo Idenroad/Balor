@@ -2,6 +2,145 @@
 
 [Version française](README_fr.md)
 
+<img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" />
+
+**Balor** is a **modular pentesting framework** built on top of [CachyOS/CachyOS Handheld Edition](https://cachyos.org/), designed to turn CachyOS into a portable offensive toolkit (Steam Deck‑like, Lenovo Legion Go, laptops, mini‑PC) in under 10 minutes.
+
+## 🚀 A Framework, Not Just Scripts
+
+Balor evolved from simple scripts into a full pentesting framework with:
+
+- 🎯 **Modular Architecture** – independent stacks (WiFi, LLM, NetworkScan, Password, OSINT, WebExploit, RemoteAccess)
+- 🔧 **Plugin-like stacks** – each stack installs/uninstalls cleanly without polluting the system
+- 🌐 **Full i18n** – ~400 strings available in French and English
+- 🎨 **Unified UI** – consistent color scheme and standardized menus across stacks
+- 📚 **Shared Libraries** – reusable components (`lib/common.sh`, `lib/i18n.sh`)
+- 🤖 **AI Integration** – LLM capabilities with security‑oriented personas
+- ⚙️ **Centralized Management** – single `balorsh` wrapper for all operations
+
+## 🤖 AI-assisted Security Analysis
+
+The `llm` stack (via Ollama) brings local AI models to Balor for security tasks.
+
+### Security Personas
+- 🔴 **Red Team** – offensive security expert
+- 🔵 **Blue Team** – defensive security specialist
+- 🟣 **Purple Team** – hybrid offensive/defensive recommendations
+- 📊 **Log Analyst** – automated log analysis and threat detection
+- 🎓 **Base** – general cybersecurity knowledge
+
+### Key features
+- 💬 **Interactive Chat** – real-time AI consultations
+- 📝 **Log Analysis** – automatic parsing and threat identification
+- 💾 **Session Management** – save and review chats and analyses
+- 🔄 **Model Switching** – change active models without restarts
+- 🧠 **Custom Models** – import and use custom GGUF models
+
+All LLM interactions run locally via Ollama for privacy and offline use.
+
+Goal: turn a clean CachyOS base into a portable offensive platform with AI assistance, reproducible and safe for controlled use.
+
+---
+
+## 🎯 Concept: Layer on top of CachyOS Handheld Edition
+
+Balor does not replace CachyOS. It layers on top of a standard CachyOS Handheld Edition install, adding per‑stack install/uninstall scripts, minimal system integration to avoid breaking packages or services, and an offensive orientation (WiFi, OSINT, BLE, remote, etc.).
+
+You keep the optimized kernel and tooling of CachyOS and add a "Legion" layer oriented toward red team usage.
+
+---
+
+## 🌍 Multilanguage support (0.6)
+
+Balor includes an internationalization system supporting French and English. Language is detected from the `LANG` environment variable; override with `BALOR_LANG`.
+
+```bash
+# automatic detection
+./balorsh
+
+# force language
+BALOR_LANG=fr ./balorsh
+BALOR_LANG=en ./balorsh
+```
+
+---
+
+## 🛡️ Legion concept
+
+Each "legion" is a thematic stack with its own `install.sh`, `uninstall.sh`, `commands.sh`, and `packages.txt` declaring `pacman:` / `aur:` dependencies. Stacks aim to avoid side‑effects and be installable/uninstallable independently.
+
+---
+
+## 📦 Available stacks (summary)
+
+Quick reference of stacks included in the project (versions shown are internal stack versions):
+
+1. 📡 **WiFi** – dedicated WiFi toolkit: aircrack-ng, hcxdumptool, wifiphisher, etc.
+2. 🔍 **OSINT** – Maltego, SpiderFoot, theHarvester, censys, amass
+3. 🌊 **Framework** – Burp Suite, Metasploit, ExploitDB, balorcve
+4. 🐒 **Web Exploit** – gobuster, sqlmap, ffuf, wpscan
+5. 🌎 **Network Scanner** – nmap, masscan, arp-scan, tcpdump
+6. 💀 **Password** – hashcat, john, hcxkeys, wordlists
+7. 👀 **Remote** – remmina, rdesktop, ssh utilities
+8. 🤖 **LLM** – Ollama for local AI models
+
+---
+
+## ⚡ Quick install
+
+```bash
+git clone https://github.com/Idenroad/Balor.git
+cd Balor
+chmod +x install.sh
+./install.sh
+```
+
+In the interactive menu choose the option to install `balorsh` and the stacks into `/opt/balorsh` (option 6 in the installer UI).
+
+Commands:
+
+```bash
+balorsh --help
+balorsh --version
+balorsh list
+sudo balorsh <stack>
+```
+
+Recommended: install all stacks for a complete environment.
+
+---
+
+## 🚀 Requirements
+
+- CachyOS Handheld Edition installed
+- Root / sudo access
+- Internet connection for package and AUR downloads
+
+---
+
+## 🗺️ Roadmap
+
+- Document and improve reporting templates
+- Forensics / IR tooling
+- Expanded documentation and cheat sheets
+- Telephony stack (SMS, SIP)
+- Enhanced AI orchestration features
+
+---
+
+## ⚠️ Legal / Disclaimer
+
+Balor is intended for security professionals and enthusiasts. Use only on systems for which you have explicit authorization. The authors are not responsible for misuse.
+
+---
+
+## 📧 Contact
+
+- Idenroad: https://idenroad.ca
+# Balor – Idenroad Legion
+
+[Version française](README_fr.md)
+
 <img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
 
 **Balor** is a **modular pentesting framework** built on top of [CachyOS Handheld Edition](https://cachyos.org/), designed for portable offensive security platforms (Steam‑Deck‑like devices, Lenovo Legion Go, laptops, mini‑PCs).

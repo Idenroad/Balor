@@ -9,18 +9,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$ROOT_DIR/lib/common.sh"
 
-# alias locaux pour la lisibilité
-C_RESET="${C_RESET:-\033[0m}"
-C_BOLD="${C_BOLD:-\033[1m}"
-# palette: accent1/accent2/green/highlight
-C_ACCENT1="${C_ACCENT1:-\033[38;2;117;30;233m}"
-C_ACCENT2="${C_ACCENT2:-\033[38;2;144;117;226m}"
-C_GOOD="${C_GOOD:-\033[38;2;6;251;6m}"
-C_HIGHLIGHT="${C_HIGHLIGHT:-\033[38;2;37;253;157m}"
-C_SHADOW="${C_SHADOW:-\033[38;2;128;128;128m}"
-C_RED="\e[31m"
-C_YELLOW="\e[33m"
-C_INFO="\e[36m"
+# Use centralized palette from lib/common.sh; map legacy local names only
+# (do not redefine C_ACCENT*/C_GOOD/C_HIGHLIGHT here)
+MAGENTA=${MAGENTA:-${C_ACCENT2:-$C_ACCENT1}}
+NC=${NC:-$C_RESET}
+GREEN=${GREEN:-${C_GOOD}}
+BLUE=${BLUE:-${C_ACCENT2:-$C_ACCENT1}}
+CYAN=${CYAN:-${C_INFO}}
+YELLOW=${YELLOW:-${C_YELLOW}}
+RED=${RED:-${C_RED}}
 
 # Variables globales
 IFACE_DEFAULT=""
@@ -1555,7 +1552,7 @@ wifi_bruteforce() {
       if [[ -s "$f" ]]; then
         local before_lines=$(wc -l < "$f")
         printf "$WIFI_DEDUPLICATING_FILE...\n" "$(basename "$f")" "$before_lines" >&2
-        tmpf="$f.tmp"
+        local tmpf="$f.tmp"
         if command -v sort >/dev/null 2>&1; then
           # Utilise sort avec limite mémoire et parallélisation si possible
           if sort --parallel=4 -u -S "$memlimit" -T "$excl_tmp_dir" "$f" -o "$tmpf" 2>/dev/null; then
@@ -1643,7 +1640,7 @@ wifi_bruteforce() {
             for f in "$excl_tmp_dir"/exclude.len*; do
               [[ -f "$f" ]] || continue
               if [[ -s "$f" ]]; then
-                tmpf="$f.tmp"
+                local tmpf="$f.tmp"
                 sort --parallel=4 -u -S "$memlimit" -T "$excl_tmp_dir" "$f" -o "$tmpf" 2>/dev/null || sort -u "$f" -o "$tmpf" || true
                 mv -f "$tmpf" "$f" || true
               fi
@@ -1741,8 +1738,6 @@ wifi_bruteforce() {
         printf '%s' "$escchars_safe" > "$hcchr_file"
         
         echo "$WIFI_GENERATION_FOR_LENGTH $L ($WIFI_CUSTOM_CHARSET_PARAM)" >&2
-        echo "DEBUG: mask='$mask' charset file='$hcchr_file'" >&2
-        printf "$WIFI_DEBUG_EXCL_FILE_CONTAINS\n" "$excl_len" "$(wc -l < "$excl_len")" >&2
         
         # Test : compter combien de candidats passent le filtre
         local test_count
@@ -1751,7 +1746,6 @@ wifi_bruteforce() {
         else
           test_count=$(hashcat --stdout -a 3 -1 "$hcchr_file" "$mask" 2>/dev/null | head -1000 | grep -v -F -f "$excl_len" | wc -l)
         fi
-        printf "$WIFI_DEBUG_TEST_COUNT_PASS_FILTER\n" "$test_count" >&2
         
         if [[ $prefer_rg -eq 1 ]]; then
           { hashcat --stdout -a 3 -1 "$hcchr_file" "$mask" 2>/dev/null | rg -v -F -f "$excl_len" || true; } | run_hashcat_stdin "$hashfile"
@@ -1786,7 +1780,6 @@ wifi_bruteforce() {
           return 1
         fi
         echo "$WIFI_DIRECT_HASHCAT_EXECUTION $L ($WIFI_CUSTOM_CHARSET_PARAM)" >&2
-        echo "DEBUG: mask='$mask' escchars_safe='${escchars_safe}'" >&2
         # Écrit le charset dans un fichier temporaire .hcchr (format de fichier charset hashcat)
         local hcchr_file
         hcchr_file=$(mktemp /tmp/hashcat_charset.XXXXXX.hcchr) || { echo -e "${C_RED}Erreur : impossible de créer le fichier charset${C_RESET}"; return 1; }

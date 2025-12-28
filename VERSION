@@ -1,12 +1,19 @@
 # Balor System Version
-0.9.0
+1.0.0
 
 # Stacks Versions
-framework:1.1
-llm:0.8
-networkscan:1.0
-osint:1.0
-password:1.0
-remoteaccess:1.1
-webexploit:1.0
-wifi:1.2
+framework:1.5
+llm:1.5
+networkscan:1.5
+osint:1.5
+password:1.5
+remoteaccess:1.5
+webexploit:1.5
+wifi:1.5
+
+#LLM Version
+Modelfile.base:1.5
+Modelfile.blueteam:1.5
+Modelfile.logananalyst:1.5
+Modelfile.purpleteam:1.5
+Modelfile.redteam:1.5

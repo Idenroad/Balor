@@ -39,6 +39,21 @@ if [[ -n "$aur_list" ]]; then
   done
 fi
 
+# Configure git safe directories for ExploitDB
+echo ""
+echo "[Framework] Configuration des répertoires git sûrs pour ExploitDB..."
+git config --global --add safe.directory /usr/share/exploitdb || true
+git config --global --add safe.directory /usr/share/exploitdb-papers || true
+echo "[Framework] Répertoires git sûrs configurés."
+
+# Optional: install balorcve via pipx for CVE searches
+if command -v pipx >/dev/null 2>&1; then
+  echo "\n[Framework] Installing balorcve via pipx..."
+  pipx install --force "git+https://github.com/Idenroad/balorcve.git" || true
+else
+  echo "\n[Framework] pipx not found; skipping balorcve installation. Install pipx to get balorcve support."
+fi
+
 # Créer le dossier data pour marquer l'installation
 ensure_stack_data_dir "framework"
 

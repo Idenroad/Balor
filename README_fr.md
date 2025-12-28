@@ -4,7 +4,7 @@
 
 <img width="1920" height="461" alt="Idenroad_logo_horizontal_black" src="https://github.com/user-attachments/assets/9ddbef27-f290-4aa9-942b-ee8e7dbdd298" /> <br><br>
 
-**Balor** est un **framework modulaire de pentesting** construit au‑dessus de [CachyOS Handheld Edition](https://cachyos.org/), conçu pour les plateformes offensives portables (Steam Deck‑like, Lenovo Legion Go, laptops, mini‑PC).
+**Balor** est un **framework modulaire de pentesting** construit au‑dessus de [CachyOS/CachyOS Handheld Edition](https://cachyos.org/), conçu pour transformer CachyOS en système offensif portable (Steam Deck‑like, Lenovo Legion Go, laptops, mini‑PC) en moins de 10 minutes.
 
 ## 🚀 Un Framework, Pas Juste des Scripts
 
@@ -179,9 +179,17 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 
 **Outils CLI :**
 
-- theharvester-git (0.1)
+- theHarvester (1.0.0)
 - amass-bin (0.1)
-- recon-ng (0.1)
+- python-shodan (0.9)
+- massdns (1.0.0)
+- gau (1.0.0)
+- waybackurls (1.0.0)
+- gittools.git (0.9.5)
+- jq (0.1)
+- httprobe (1.0.0)
+- gitleaks (1.0.0)
+- trufflehog (1.0.0)
 
 **Objectif :**
 
@@ -200,6 +208,8 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 
 - burpsuite (0.2)
 - metasploit (0.2)
+- exploitdb (0.9)
+- balor cve-search (1.0.0)
 
 **Objectif :**
 
@@ -238,6 +248,7 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 - arp-scan (0.3)
 - netdiscover (0.3)
 - tcpdump (0.3)
+- balor PMF scanner (0.9.5)
 
 **Objectif :**
 
@@ -271,25 +282,31 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 
 **Outils inclus :**
 
-- openssh (0.5)
-- freerdp (0.5)
 - rdesktop (0.5)
-- smbclient (0.5)
-- rpcbind (0.5)
-- nfs-utils (0.5)
 - remmina (0.5)
 - remmina-plugin-teamviewer (0.5)
+- sshpass (0.9)
 
 **Objectif :**
 
 - Vérifier que les **outils d’accès distant de base** sont présents (SSH, RDP, SMB, NFS),
 - avec une interface graphique pratique (Remmina) pour handhelds.
 
+### 8. 🤖 Stack LLM
+
+**Outils inclus :**
+
+- Ollama (0.6)
+
+**Objectif :**
+
+- Avoir accès à des IA locales 7B ou 13B facilement, via le CLI.
+
 ---
 
 ## 🎯 Objectifs globaux
 
-- **compatibilité** : les outils sont patchés pour être compatibles avec CachyOS Handheld Edition.
+- **compatibilité** : les outils sont patchés pour être compatibles avec CachyOS/CachyOS Handheld Edition.
 - **user‑friendly** : installation et désinstallation simplifiées, par stack, sans devoir tout connaître d’Arch/AUR.
 - **reproductibilité** : même machine, même script, même résultat.
 
@@ -304,7 +321,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Dans le menu, appuyez sur **5** pour installer balorsh et toutes les stacks dans `/opt/balorsh`
+Dans le menu, appuyez sur **6** pour installer balorsh et toutes les stacks dans `/opt/balorsh`
 
 Dans votre terminal, vous pouvez utiliser :
 
@@ -321,7 +338,7 @@ sudo balorsh <stack>
 2. `cd Balor`
 3. `chmod +x install.sh`
 4. `./install.sh`
-5. Choisissez à nouveau **5** dans le menu
+5. Choisissez à nouveau **6** dans le menu
 
 **Recommandé :** Installez TOUTES les stacks !
 
@@ -353,42 +370,16 @@ Une des options du script permet de **tout mettre à jour** :
 
 ## 🗺️ Roadmap (prochaines légions)
 
-Quelques idées de futures stacks / légions :
+Quelques idées de futures stacks et amélioration :
 
-- **BLE / RF** : outils type `btlejack`, NRF, analyse RF basique.
+- **Gestion de documents** : gestion des aides via glow, gestion documentaire
 - **Reporting** : gabarits de rapports, scripts de collecte d’artefacts.
 - **Forensics / IR léger** : outils d’analyse post‑exploitation, collecte de logs, binaires intéressants.
-- **Doc / Cheatsheets** : stack d’aide hors‑ligne pour travailler en mobilité.
-
----
-
-## 🛠️ Quickstart : Pentest WiFi + OSINT avec Idenroad
-
-### Scénario : Audit WiFi + OSINT sur une cible
-
-1. **Lancer un evil twin avec roguehostapd :**
-
-   ```bash
-   sudo roguehostapd -i wlan1 -e "FreeWiFi" -c 6
-   ```
-
-2. **Captive portal avec wifiphisher :**
-
-   ```bash
-   sudo wifiphisher -aI wlan1 -e "FreeWiFi"
-   ```
-
-3. **Lancer theHarvester sur un domaine cible :**
-
-   ```bash
-   theHarvester -d example.com -b all
-   ```
-
-4. **Lancer Maltego (avec Java correctement configuré) :**
-
-   ```bash
-   maltego
-   ```
+- **Doc / Cheatsheets** : gestion des aides via glow, gestion documentaire
+- **Concept addon** : Ajouter des stacks hors core des 8 de bases pour une meilleure gestion
+- **Téléphonie** : Stack téléphonie, SMS, SIP, etc.
+- **Orchestration IA** : Orchestration de scénarios avec les outils de Balor grâce aux LLMs locaux.
+- **Phishing** : Stack de phishing et ingénierie sociale
 
 ---
 

@@ -1,12 +1,24 @@
 # OSINT stack Balor
-#stack 1.0
+#stack 1.3
+
+#Fix
+aur:mdk3
+pacman:mdk4
 
 # GUI / Web UI
 aur:maltego
-aur:spiderfoot
-aur:python-censys
 
 # CLI utiles
-aur:theharvester-git
 aur:amass-bin
-aur:recon-ng
+pacman:python-shodan
+aur:massdns
+aur:gau
+aur:waybackurls
+aur:gittools-git
+aur:spiderfoot
+
+# Autre
+
+aur:httprobe-bin
+pacman:gitleaks
+aur:trufflehog-bin

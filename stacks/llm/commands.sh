@@ -9,17 +9,15 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$ROOT_DIR/lib/common.sh"
 
-# alias locaux pour la lisibilité
-C_RESET="${C_RESET:-\033[0m}"
-C_BOLD="${C_BOLD:-\033[1m}"
-C_ACCENT1="${C_ACCENT1:-\033[38;2;117;30;233m}"
-C_ACCENT2="${C_ACCENT2:-\033[38;2;144;117;226m}"
-C_GOOD="${C_GOOD:-\033[38;2;6;251;6m}"
-C_HIGHLIGHT="${C_HIGHLIGHT:-\033[38;2;37;253;157m}"
-C_RED="\e[31m"
-C_YELLOW="\e[33m"
-C_INFO="\e[36m"
-C_SHADOW="\e[90m"
+# Use centralized palette from lib/common.sh; map legacy local names only
+# (do not redefine C_ACCENT*/C_GOOD/C_HIGHLIGHT here)
+MAGENTA=${MAGENTA:-${C_ACCENT2:-$C_ACCENT1}}
+NC=${NC:-$C_RESET}
+GREEN=${GREEN:-${C_GOOD}}
+BLUE=${BLUE:-${C_ACCENT2:-$C_ACCENT1}}
+CYAN=${CYAN:-${C_INFO}}
+YELLOW=${YELLOW:-${C_YELLOW}}
+RED=${RED:-${C_RED}}
 
 # Variables globales
 : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
@@ -37,6 +35,10 @@ mkdir -p "$LLM_LOGS_DIR"
 mkdir -p "$LLM_CONVERSATIONS_DIR"
 mkdir -p "$LLM_MODELS_DIR"
 mkdir -p "$LLM_MODELFILES_DIR"
+
+# Mettre à jour le JSON des modèles et vérifier si on doit recréer des modèles Ollama
+# update_models_json || true
+# check_and_recreate_models_if_needed || true
 
 # ==============================================================================
 # FONCTIONS DE ${LLM_MENU_SECTION_GESTION} DES ${LLM_MENU_SECTION_MODELS}
@@ -127,8 +129,8 @@ switch_active_model() {
     # Recréer tous les Modelfiles avec le nouveau modèle
     for src_modelfile in "$ROOT_DIR/lib/models"/Modelfile.*; do
       if [[ -f "$src_modelfile" ]]; then
-        persona=$(basename "$src_modelfile" | sed 's/^Modelfile\.//')
-        dest_modelfile="$LLM_MODELFILES_DIR/Modelfile.$persona"
+        local persona=$(basename "$src_modelfile" | sed 's/^Modelfile\.//')
+        local dest_modelfile="$LLM_MODELFILES_DIR/Modelfile.$persona"
         
         sed "s|FROM /opt/balorsh/data/llm/models/.*\.gguf|FROM $LLM_MODELS_DIR/$selected_model|g" \
           "$src_modelfile" > "$dest_modelfile"

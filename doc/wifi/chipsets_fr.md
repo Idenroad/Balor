@@ -1,41 +1,67 @@
-# Chipsets WiFi Recommandés pour Pentesting
+# Chipsets WiFi recommandés pour le pentesting (Linux)
 
-Ce document liste les chipsets WiFi compatibles avec les outils de pentesting sous Linux.
+Ce document présente les chipsets recommandés, leur niveau de compatibilité (mode monitor + injection) et des conseils d'achat et d'installation.
 
-## Tableau de Compatibilité
+## Tableau de compatibilité
 
-| Chipset / Modèle | Support Linux (mode monitor + injection) | Notes / Remarques |
-|------------------|------------------------------------------|-------------------|
-| **Atheros AR9271** | ⭐ Excellent | Très stable, support natif, utilisé dans TP-Link TL-WN722N v1 (⚠️ v2/v3 non compatibles) |
-| **Ralink RT3070 / RT3572** | ✅ Bon | Supporté, stable, utilisé dans plusieurs adaptateurs USB |
-| **Realtek RTL8812AU** | ✅ Bon avec drivers patchés | Supporte 802.11ac, nécessite drivers tiers (ex: aircrack-ng/rtl8812au) |
-| **Realtek RTL8814AU** | ✅ Bon avec drivers patchés | Support 4x4 MIMO, puissant mais plus gourmand |
-| **Realtek RTL8822BU** | ⚠️ Variable | Chipset moderne avec driver rtw88, support monitor partiel, injection limitée |
-| **Realtek RTL8821** | ⚠️ Variable | Support partiel avec drivers rtw88, mieux avec drivers patchés |
-| **Realtek RTL8187** | ⭐ Excellent | Ancien mais très fiable pour injection et monitor |
-| **Mediatek MT7610U / MT7612U** | ⚠️ Variable | Support partiel, parfois instable, à tester |
-| **Broadcom BCM43xx** | ❌ Mauvais | Généralement déconseillé pour pentesting (pas de support injection fiable) |
-| **Intel Wireless (ex: 7260, 8265)** | ❌ Mauvais | Pas adapté au pentesting (pas de mode monitor/injection) |
+| Chipset / Modèle | Support Linux (monitor + injection) | Notes |
+|------------------|-------------------------------------:|-------|
+| **Atheros AR9271** | ⭐ Excellent | Support natif, stable. Présent sur TP‑Link TL‑WN722N v1 (v2/v3 NON compatibles).
+| **Ralink RT3070 / RT3572** | ✅ Bon | Large support, utilisé sur de nombreux adaptateurs USB.
+| **Realtek RTL8812AU** | ✅ Bon (drivers patchés) | 802.11ac — nécessite drivers tiers (aircrack-ng/rtl8812au, dkms).
+| **Realtek RTL8814AU** | ✅ Bon (drivers patchés) | 4×4 MIMO — puissant, demande des drivers spécifiques.
+| **Realtek RTL8822BU / RTL8821** | ⚠️ Variable | Support partiel (rtw88 ou drivers tiers). Injection parfois limitée.
+| **Realtek RTL8187** | ⭐ Excellent | Ancien mais très fiable pour injection/monitor.
+| **Mediatek MT7610U / MT7612U** | ⚠️ Variable | Support instable selon la distribution et le driver.
+| **Broadcom BCM43xx** | ❌ Mauvais | Généralement non adapté (injection peu fiable, drivers propriétaires).
+| **Intel Wireless (ex: 7260, 8265)** | ❌ Mauvais | Pas de support fiable pour monitor/injection — pas recommandé.
 
 ## Légende
 
-- ⭐ **Excellent** : Support natif complet, très stable
-- ✅ **Bon** : Fonctionne bien avec drivers appropriés
-- ⚠️ **Variable** : Support partiel ou instable
-- ❌ **Mauvais** : Non recommandé, support limité ou inexistant
+- ⭐ Excellent : support natif complet, très stable
+- ✅ Bon : fonctionne bien avec drivers appropriés
+- ⚠️ Variable : support partiel ou instable, à tester
+- ❌ Mauvais : non recommandé pour pentesting
 
-## Notes Importantes
+## Conseils avant achat
 
-1. **TP-Link TL-WN722N** : Seule la version 1 utilise le chipset AR9271. Les versions 2 et 3 utilisent Realtek RTL8188EUS qui n'est pas adapté au pentesting.
+1. Vérifiez la révision matérielle : la même référence commerciale peut embarquer plusieurs chipsets (ex. TL‑WN722N v1 ≠ v2/v3).
+2. Privilégiez les chipsets Atheros/RTL8187 pour la fiabilité si vous débutez.
+3. Si vous choisissez Realtek/Mediatek, préparez‑vous à compiler/installer des drivers tiers (DKMS) et testez l'injection.
+4. Évitez Broadcom et les cartes Intel pour les usages pentest.
 
-2. **Drivers Realtek** : Les chipsets Realtek nécessitent généralement l'installation de drivers tiers depuis GitHub (ex: aircrack-ng/rtl8812au).
+### Commandes utiles pour identifier le chipset
 
-3. **Vérification du chipset** : Utilisez `lsusb` ou `lspci` pour identifier votre chipset avant l'achat d'un adaptateur WiFi.
+```bash
+lsusb
+lspci -nnk | grep -iA3 wireless
+```
 
-## Adaptateurs Recommandés
+## Drivers et installation
 
-- **TP-Link TL-WN722N v1** (AR9271)
-- **Alfa AWUS036NHA** (AR9271)
-- **Alfa AWUS036ACH** (RTL8812AU)
+- Realtek : consulter `aircrack-ng/rtl8812au`, `morrownr/8821au` ou `morrownr/rtl88xxau` selon le modèle.
+- Mediatek : rechercher `mt7610u`/`mt7612u` sur GitHub et vérifier la compatibilité kernel.
+- Utiliser `dkms` quand possible pour garder les drivers après mise à jour du noyau.
+
+## Adaptateurs recommandés
+
+- TP‑Link TL‑WN722N v1 (AR9271)
+- Alfa AWUS036NHA (AR9271)
+- Alfa AWUS036ACH (RTL8812AU)
+- Alfa AWUS1900 (RTL8814AU)
+- Panda PAU05 (RT3070)
+
+## Remarques pratiques
+
+- Testez l'injection et le mode monitor dès que possible après achat (sur une machine de test autorisée).
+- Préparez une petite distribution live (Kali/Parrot) pour valider le bon fonctionnement avant intégration.
+
+## Remarques légales et éthiques
+
+- N'effectuez des tests que sur des réseaux dont vous avez l'autorisation explicite.
+- Respectez la loi et les règles d'utilisation de votre pays.
+
 - **Alfa AWUS1900** (RTL8814AU)
 - **Panda PAU05** (RT3070)
+- **Alfa AWUS036ACM** (MT7610U)
+- **AWUS036ACM** (MT7612U)
