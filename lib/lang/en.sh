@@ -229,6 +229,7 @@ INSTALL_MENU_9="Uninstall all stacks"
 INSTALL_MENU_10="Update everything (stacks + wrapper)"
 INSTALL_MENU_11="Check installed tools"
 INSTALL_MENU_12="Remove orphaned packages"
+INSTALL_MENU_13="Add CachyOS repo"
 INSTALL_MENU_0="Exit"
 
 # Prompts
@@ -345,6 +346,19 @@ INSTALL_ORPHANS_CONFIRM="Do you want to remove them? [y/N]: "
 INSTALL_ORPHANS_REMOVING="Removing orphaned packages..."
 INSTALL_ORPHANS_REMOVED="Orphaned packages removed successfully."
 INSTALL_ORPHANS_FAILED="Failed to remove orphaned packages."
+
+# Messages for adding CachyOS repo
+INSTALL_CACHYOS_TITLE="Add CachyOS repo"
+INSTALL_CACHYOS_DOWNLOADING="Downloading CachyOS repo..."
+INSTALL_CACHYOS_DOWNLOAD_SUCCESS="Download successful"
+INSTALL_CACHYOS_EXTRACTING="Extracting repo..."
+INSTALL_CACHYOS_EXTRACT_SUCCESS="Extraction successful"
+INSTALL_CACHYOS_INSTALLING="Installing CachyOS repo..."
+INSTALL_CACHYOS_INSTALL_SUCCESS="CachyOS repo installed successfully!"
+INSTALL_CACHYOS_CLEANUP="Temporary files cleanup completed"
+INSTALL_CACHYOS_DOWNLOAD_ERROR="Error downloading CachyOS repo"
+INSTALL_CACHYOS_EXTRACT_ERROR="Error extracting repo"
+INSTALL_CACHYOS_INSTALL_ERROR="Error installing CachyOS repo"
 
 # Main installation messages
 INSTALL_BANNER_FALLBACK="=== Balor Installer – Powered by Idenroad ==="

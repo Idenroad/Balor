@@ -1457,6 +1457,46 @@ remove_orphaned_packages() {
   press_enter_if_enabled
 }
 
+add_cachyos_repo() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "            ${C_GOOD}${INSTALL_CACHYOS_TITLE}${C_RESET}                        "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  
+  echo -e "${C_INFO}${INSTALL_CACHYOS_DOWNLOADING}${C_RESET}"
+  if curl https://mirror.cachyos.org/cachyos-repo.tar.xz -o cachyos-repo.tar.xz; then
+    echo -e "${C_GOOD}${INSTALL_CACHYOS_DOWNLOAD_SUCCESS}${C_RESET}"
+    
+    echo -e "${C_INFO}${INSTALL_CACHYOS_EXTRACTING}${C_RESET}"
+    if tar xvf cachyos-repo.tar.xz && cd cachyos-repo; then
+      echo -e "${C_GOOD}${INSTALL_CACHYOS_EXTRACT_SUCCESS}${C_RESET}"
+      
+      echo -e "${C_INFO}${INSTALL_CACHYOS_INSTALLING}${C_RESET}"
+      if sudo ./cachyos-repo.sh; then
+        echo -e "${C_GOOD}${INSTALL_CACHYOS_INSTALL_SUCCESS}${C_RESET}"
+        
+        # Nettoyage
+        cd ..
+        rm -rf cachyos-repo cachyos-repo.tar.xz
+        echo -e "${C_INFO}${INSTALL_CACHYOS_CLEANUP}${C_RESET}"
+      else
+        echo -e "${C_RED}${INSTALL_CACHYOS_INSTALL_ERROR}${C_RESET}"
+        cd ..
+        rm -rf cachyos-repo cachyos-repo.tar.xz
+      fi
+    else
+      echo -e "${C_RED}${INSTALL_CACHYOS_EXTRACT_ERROR}${C_RESET}"
+      rm -f cachyos-repo.tar.xz
+    fi
+  else
+    echo -e "${C_RED}${INSTALL_CACHYOS_DOWNLOAD_ERROR}${C_RESET}"
+  fi
+  
+  echo ""
+  press_enter_if_enabled
+}
+
 main_menu() {
   while true; do
     clear
@@ -1496,6 +1536,7 @@ main_menu() {
       " ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
       " ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
       " ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${INSTALL_MENU_12}${C_RESET}"
+      " ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${INSTALL_MENU_13}${C_RESET}"
       ""
       " ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
     )
@@ -1566,6 +1607,7 @@ main_menu() {
         press_enter_if_enabled
         ;;
       12) remove_orphaned_packages ;;
+      13) add_cachyos_repo ;;
       0) 
         clear
         echo -e "${C_GOOD}[Idenroad] ${INSTALL_BYE}${C_RESET}"

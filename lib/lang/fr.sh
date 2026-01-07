@@ -229,6 +229,7 @@ INSTALL_MENU_9="Désinstaller tous les stacks"
 INSTALL_MENU_10="Mettre à jour tout (stacks + wrapper)"
 INSTALL_MENU_11="Vérifier les outils installés"
 INSTALL_MENU_12="Supprimer les paquets orphelins"
+INSTALL_MENU_13="Ajouter le repo CachyOS"
 INSTALL_MENU_0="Quitter"
 
 # Prompts
@@ -345,6 +346,19 @@ INSTALL_ORPHANS_CONFIRM="Voulez-vous les supprimer? [o/N]: "
 INSTALL_ORPHANS_REMOVING="Suppression des paquets orphelins..."
 INSTALL_ORPHANS_REMOVED="Paquets orphelins supprimés avec succès."
 INSTALL_ORPHANS_FAILED="Échec de la suppression des paquets orphelins."
+
+# Messages pour l'ajout du repo CachyOS
+INSTALL_CACHYOS_TITLE="Ajouter le repo CachyOS"
+INSTALL_CACHYOS_DOWNLOADING="Téléchargement du repo CachyOS..."
+INSTALL_CACHYOS_DOWNLOAD_SUCCESS="Téléchargement réussi"
+INSTALL_CACHYOS_EXTRACTING="Extraction du repo..."
+INSTALL_CACHYOS_EXTRACT_SUCCESS="Extraction réussie"
+INSTALL_CACHYOS_INSTALLING="Installation du repo CachyOS..."
+INSTALL_CACHYOS_INSTALL_SUCCESS="Repo CachyOS installé avec succès !"
+INSTALL_CACHYOS_CLEANUP="Nettoyage des fichiers temporaires terminé"
+INSTALL_CACHYOS_DOWNLOAD_ERROR="Erreur lors du téléchargement du repo CachyOS"
+INSTALL_CACHYOS_EXTRACT_ERROR="Erreur lors de l'extraction du repo"
+INSTALL_CACHYOS_INSTALL_ERROR="Erreur lors de l'installation du repo CachyOS"
 
 # Messages principaux d'installation
 INSTALL_BANNER_FALLBACK="=== Balor Installer – Powered by Idenroad ==="
