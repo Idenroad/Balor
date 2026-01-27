@@ -131,7 +131,7 @@ remove_pipx_pkg() {
 
   # Try each variant
   for variant in "${pkg_variants[@]}"; do
-    if pipx list --short | grep -q "^${variant} "; then
+    if pipx list --short 2>/dev/null | grep -q "^${variant} "; then
       printf "$MSG_PKG_REMOVING\n" "$pkg"
       pipx uninstall "$variant" || {
         printf "$MSG_PKG_REMOVE_FAILED\n" "$pkg"
@@ -141,6 +141,87 @@ remove_pipx_pkg() {
   done
 
   printf "$MSG_PKG_NOT_INSTALLED\n" "$pkg"
+}
+
+_pipx_system_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  return 1
+}
+
+_pipx_python_mm() {
+  local py="$1"
+  "$py" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")' 2>/dev/null
+}
+
+pipx_ensure_pkg_uses_system_python() {
+  local pkg="$1"
+  shift || true
+  local variants=()
+  variants+=("$pkg")
+  if [[ $# -gt 0 ]]; then
+    variants+=("$@")
+  fi
+
+  if ! command -v pipx >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local sys_py
+  sys_py=$(_pipx_system_python) || return 1
+  local sys_mm
+  sys_mm=$(_pipx_python_mm "$sys_py")
+  [[ -n "$sys_mm" ]] || return 1
+
+  local installed=""
+  local v
+  for v in "${variants[@]}"; do
+    if [[ -d "$HOME/.local/pipx/venvs/$v" ]]; then
+      installed="$v"
+      break
+    fi
+    if pipx list --short 2>/dev/null | grep -q "^${v} "; then
+      installed="$v"
+      break
+    fi
+  done
+  [[ -n "$installed" ]] || return 1
+
+  local venv_py="$HOME/.local/pipx/venvs/$installed/bin/python"
+  if [[ ! -x "$venv_py" ]]; then
+    pipx reinstall "$installed" --python "$sys_py" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  local venv_mm
+  venv_mm=$(_pipx_python_mm "$venv_py")
+  if [[ -z "$venv_mm" || "$venv_mm" != "$sys_mm" ]]; then
+    pipx reinstall "$installed" --python "$sys_py" >/dev/null 2>&1 || true
+  fi
+  return 0
+}
+
+pipx_ensure_env_for_packages() {
+  local pkg
+  for pkg in "$@"; do
+    case "$pkg" in
+      censys-python)
+        pipx_ensure_pkg_uses_system_python "$pkg" "censys" || true
+        ;;
+      theHarvester)
+        pipx_ensure_pkg_uses_system_python "$pkg" "theharvester" || true
+        ;;
+      *)
+        pipx_ensure_pkg_uses_system_python "$pkg" || true
+        ;;
+    esac
+  done
 }
 
 # Lire packages.txt d'une stack

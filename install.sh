@@ -1155,6 +1155,66 @@ is_git_repo_installed() {
   return 1
 }
 
+# Cache pipx list output to avoid calling it repeatedly (which can spam warnings
+# when interpreters are missing).
+_pipx_list_short_cached() {
+  if [[ -n "${_BALOR_PIPX_LIST_SHORT_CACHE:-}" ]]; then
+    printf '%s\n' "${_BALOR_PIPX_LIST_SHORT_CACHE}"
+    return 0
+  fi
+
+  if ! command -v pipx >/dev/null 2>&1; then
+    _BALOR_PIPX_LIST_SHORT_CACHE=""
+    _BALOR_PIPX_LIST_SHORT_WARN=""
+    return 1
+  fi
+
+  local out
+  out=$(pipx list --short 2>&1 || true)
+  _BALOR_PIPX_LIST_SHORT_WARN=""
+  if grep -qiE 'invalid interpreter|missing python interpreter' <<<"$out"; then
+    _BALOR_PIPX_LIST_SHORT_WARN="$out"
+  fi
+  _BALOR_PIPX_LIST_SHORT_CACHE="$(grep -v -iE 'invalid interpreter|missing python interpreter|^\s*To fix, execute:' <<<"$out" || true)"
+  printf '%s\n' "${_BALOR_PIPX_LIST_SHORT_CACHE}"
+  return 0
+}
+
+_pipx_offer_repair_if_needed() {
+  if [[ -z "${_BALOR_PIPX_LIST_SHORT_WARN:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${BALOR_PIPX_REPAIR_DONE:-}" ]]; then
+    return 0
+  fi
+  BALOR_PIPX_REPAIR_DONE=1
+
+  echo -e "${C_YELLOW}${_BALOR_PIPX_LIST_SHORT_WARN}${C_RESET}"
+  echo ""
+
+  if [[ -t 0 || -e /dev/tty ]]; then
+    echo -ne "${C_ACCENT1}Exécuter 'pipx reinstall-all' pour réparer ? [y/N]: ${C_RESET}"
+    local ans
+    if [[ -e /dev/tty ]]; then
+      IFS= read -r ans </dev/tty
+    else
+      IFS= read -r ans
+    fi
+    if [[ "$ans" =~ ^[yYoO]$ ]]; then
+      local py="python3"
+      if command -v python3.13 >/dev/null 2>&1; then
+        py="python3.13"
+      fi
+      echo -e "${C_INFO}pipx reinstall-all --python $py${C_RESET}"
+      pipx reinstall-all --python "$py" || true
+      unset _BALOR_PIPX_LIST_SHORT_CACHE
+      unset _BALOR_PIPX_LIST_SHORT_WARN
+      _pipx_list_short_cached >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 # Vérifie si un paquet pipx est installé
 is_pipx_pkg_installed() {
   local pkg="$1"
@@ -1181,7 +1241,7 @@ is_pipx_pkg_installed() {
   # Try each variant
   for variant in "${pkg_variants[@]}"; do
     # Utiliser pipx list pour vérifier si le paquet est installé
-    if pipx list --short | grep -q "^${variant} "; then
+    if _pipx_list_short_cached | grep -q "^${variant} "; then
       return 0
     fi
 
@@ -1240,6 +1300,9 @@ check_installed_tools() {
 
   # collect pipx packages
   mapfile -t pipx_pkgs < <(collect_pipx_packages_from_install_scripts)
+
+  _pipx_list_short_cached >/dev/null 2>&1 || true
+  _pipx_offer_repair_if_needed || true
 
   local total_expected=0
   local installed_count=0
