@@ -18,10 +18,11 @@ done
 
 # Désinstaller les outils installés via pipx (si présents)
 if command -v pipx >/dev/null 2>&1; then
-  echo "Suppression des outils installés via pipx (censys, theHarvester)"
+  echo "Suppression des outils installés via pipx (censys, theHarvester, spiderfoot)"
   # Désinstaller explicitement les packages attendus
   pipx uninstall --force censys >/dev/null 2>&1 || true
   pipx uninstall --force theHarvester >/dev/null 2>&1 || true
+  pipx uninstall --force spiderfoot >/dev/null 2>&1 || true
 else
   echo "pipx introuvable — ignorer la désinstallation pipx"
 fi

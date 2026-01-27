@@ -50,6 +50,9 @@ echo "[Framework] Répertoires git sûrs configurés."
 if command -v pipx >/dev/null 2>&1; then
   echo "\n[Framework] Installing balorcve via pipx..."
   pipx install --force "git+https://github.com/Idenroad/balorcve.git" || true
+
+  # S'assurer que les venv pipx utilisent le Python système (utile après upgrade Python)
+  pipx_ensure_env_for_packages balorcve || true
 else
   echo "\n[Framework] pipx not found; skipping balorcve installation. Install pipx to get balorcve support."
 fi

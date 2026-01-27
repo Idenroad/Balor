@@ -28,11 +28,16 @@ if ! command -v pipx >/dev/null 2>&1; then
 fi
 
 if command -v pipx >/dev/null 2>&1; then
-  echo "Installation via pipx: censys, theHarvester"
+  echo "Installation via pipx: censys, theHarvester, spiderfoot"
   # installer censys
   pipx install git+https://github.com/censys/censys-python.git --force || echo "pipx install censys failed"
   # installer theHarvester
   pipx install git+https://github.com/laramies/theHarvester.git --force || echo "pipx install theHarvester failed"
+  # installer spiderfoot (fork Idenroad)
+  pipx install git+https://github.com/Idenroad/spiderfoot.git --force || echo "pipx install spiderfoot failed"
+
+  # S'assurer que les venv pipx utilisent le Python système (utile après upgrade Python Arch)
+  pipx_ensure_env_for_packages censys-python theHarvester spiderfoot || true
 else
   echo "pipx non disponible — ignorer l'installation via pipx (installez python-pipx et relancez)."
 fi

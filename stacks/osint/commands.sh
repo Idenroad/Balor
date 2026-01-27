@@ -21,6 +21,13 @@ source "$ROOT_DIR/lib/common.sh"
 
 # Defaults and paths
 : "${BALORSH_DATA_DIR:=/opt/balorsh/data}"
+: "${BALORSH_DATA_DIR_USER:=$HOME/.local/share/balorsh/data}"
+if [[ ! -d "$BALORSH_DATA_DIR" || ! -w "$BALORSH_DATA_DIR" ]]; then
+  mkdir -p "$BALORSH_DATA_DIR_USER" 2>/dev/null || true
+  if [[ -d "$BALORSH_DATA_DIR_USER" && -w "$BALORSH_DATA_DIR_USER" ]]; then
+    BALORSH_DATA_DIR="$BALORSH_DATA_DIR_USER"
+  fi
+fi
 : "${OSINT_CONFIG_DIR:=$HOME/.config/balorsh/osint}"
 : "${HARVESTER_CONFIG:=$HOME/.theHarvester/api-keys.yaml}"
 : "${CENSYS_CONFIG:=$HOME/.config/censys/censys.cfg}"
@@ -80,6 +87,46 @@ PY
   fi
 }
 
+osint_spiderfoot_web() {
+  echo -e "${C_HIGHLIGHT}${OSINT_SPIDERFOOT_WEB_TITLE}${C_RESET}"
+  echo ""
+  echo -e "${C_INFO}${OSINT_SPIDERFOOT_WEB_LAUNCHING}${C_RESET}"
+  if command -v spiderfoot-web &>/dev/null; then
+    spiderfoot-web >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+    echo -e "${C_GOOD}${OSINT_SPIDERFOOT_WEB_LAUNCHED}${C_RESET}"
+    echo -e "${C_INFO}${OSINT_SPIDERFOOT_WEB_URL}${C_RESET}"
+  else
+    echo -e "${C_RED}${OSINT_SPIDERFOOT_WEB_NOT_INSTALLED}${C_RESET}"
+  fi
+}
+
+osint_spiderfoot_menu() {
+  while true; do
+    clear
+    echo -e "${C_ACCENT2}╔═══════════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "                  ${C_GOOD}${OSINT_SPIDERFOOT_TITLE}${C_RESET}"
+    echo -e "${C_ACCENT2}╚═══════════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    echo -e "  ${C_HIGHLIGHT}1)${C_RESET} ${C_INFO}${OSINT_MENU_SPIDERFOOT_WEB}${C_RESET}"
+    echo -e "  ${C_HIGHLIGHT}2)${C_RESET} ${C_INFO}${OSINT_MENU_SPIDERFOOT_CLI}${C_RESET}"
+    echo ""
+    echo -e "  ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${OSINT_MENU_RETURN}${C_RESET}"
+    echo ""
+    echo -ne "${C_ACCENT1}${OSINT_MENU_CHOICE}: ${C_RESET}"
+    read -r choice
+    case "$choice" in
+      1) osint_spiderfoot_web ;;
+      2) osint_spiderfoot ;;
+      0) return 0 ;;
+      *) echo -e "${C_RED}${OSINT_MENU_INVALID_CHOICE}${C_RESET}"; sleep 1 ;;
+    esac
+    echo ""
+    echo -ne "${C_INFO}${REMOTEACCESS_PRESS_ENTER}${C_RESET}"
+    read -r
+  done
+}
+
 osint_spiderfoot() {
   echo -e "${C_HIGHLIGHT}${OSINT_SPIDERFOOT_TITLE}${C_RESET}"
   echo ""
@@ -131,7 +178,12 @@ osint_spiderfoot() {
   printf "=== SpiderFoot scan start ===\nscan_id: %s\ntarget: %s\npreset: %s\nuse_tld: %s\nmodules: %s\noutfile: %s\nstart: %s\n===\n" \
     "$scan_id" "$target" "$preset" "$use_tld" "$modules" "$outfile" "$start_time" >>"$sf_log"
 
-  if ! command -v spiderfoot &>/dev/null; then
+  local sf_cmd=""
+  if command -v spiderfoot &>/dev/null; then
+    sf_cmd="spiderfoot"
+  elif command -v spiderfoot-cli &>/dev/null; then
+    sf_cmd="spiderfoot-cli"
+  else
     echo -e "${C_RED}${OSINT_SPIDERFOOT_NOT_INSTALLED}${C_RESET}"
     return 1
   fi
@@ -200,7 +252,7 @@ osint_spiderfoot() {
     disown "$watcher_pid" 2>/dev/null || true
     # Run SpiderFoot, stream output to tty and append to log
     set +e
-    bash -lc "spiderfoot -s '$target' -u all -o json" 2>&1 | tee -a "$sf_log" | tee "$outfile"
+    bash -lc "$sf_cmd -s '$target' -u all -o json" 2>&1 | tee -a "$sf_log" | tee "$outfile"
     rc=${PIPESTATUS[0]:-0}
     set -e
     kill "$watcher_pid" 2>/dev/null || true
@@ -222,7 +274,7 @@ osint_spiderfoot() {
     local watcher_pid=$!
     disown "$watcher_pid" 2>/dev/null || true
     set +e
-    bash -lc "spiderfoot -s '$target' -m '$modules' -o json" 2>&1 | tee -a "$sf_log" | tee "$outfile"
+    bash -lc "$sf_cmd -s '$target' -m '$modules' -o json" 2>&1 | tee -a "$sf_log" | tee "$outfile"
     rc=${PIPESTATUS[0]:-0}
     set -e
     kill "$watcher_pid" 2>/dev/null || true
@@ -1843,12 +1895,12 @@ EOF
 osint_diag() {
   echo -e "${C_HIGHLIGHT}${OSINT_DIAG_TITLE}${C_RESET}"
   echo ""
-  local tools=(maltego spiderfoot censys theHarvester amass massdns trufflehog gitleaks jq gau waybackurls httprobe)
+  local tools=(maltego spiderfoot-web spiderfoot-cli censys theHarvester amass massdns trufflehog gitleaks jq gau waybackurls httprobe)
   for t in "${tools[@]}"; do
     if command -v "$t" &>/dev/null; then
       local path
       path=$(command -v "$t")
-      printf "%-15s: ${OSINT_DIAG_INSTALLED}%s)\n" "$t" "$path"
+      echo -e "${C_GOOD}✓ $t${C_RESET} ${C_SHADOW}($path)${C_RESET}"
       # try common version flags
       if "$t" --version &>/dev/null; then
         "$t" --version 2>/dev/null | head -1
@@ -1914,7 +1966,7 @@ stack_menu() {
       2) osint_config_censys ;;
       3) osint_config_shodan ;;
       4) osint_maltego ;;
-      5) osint_spiderfoot ;;
+      5) osint_spiderfoot_menu ;;
       6) osint_censys_search ;;
       7) osint_censys_certs ;;
       8) osint_harvester ;;

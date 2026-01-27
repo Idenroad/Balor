@@ -15,7 +15,6 @@ aur:massdns
 aur:gau
 aur:waybackurls
 aur:gittools-git
-aur:spiderfoot
 
 # Autre
 
