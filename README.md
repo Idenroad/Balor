@@ -297,6 +297,46 @@ Inspiration and improvements: the concept is inspired by [NETREAPER](https://git
 
 ---
 
+## 🔌 Addons System (1.2.0)
+
+Balor now supports **addons** — lightweight extensions that complement the core stacks without being part of the main framework. Addons follow the same modular principles:
+
+- 🧩 **Optional Extensions** – Install only what you need
+- 📦 **Self-contained** – Each addon includes its own install/uninstall scripts
+- 🎨 **Consistent UI** – Same menus and colors as core stacks
+- 🌐 **Full i18n** – French/English support
+- 🤖 **balorsh Integration** – Access via `balorsh <addon>` like regular stacks
+
+### 🎯 Available Addons
+
+#### 🎣 Phishing Addon (1.2.0)
+
+**Tools:**
+- Gophish (phishing campaign management)
+- Zphisher (phishing page templates)
+- WifiPumpkin3 (Wi-Fi phishing)
+
+**Use Cases:**
+- Campaign management with credential harvesting
+- Phishing page generation for awareness tests
+- Wi-Fi rogue AP and captive portal attacks
+
+**Quick Start:**
+```bash
+# Install the addon
+./install.sh
+# Choose 12) Uninstall an addon → 1) Install addon → select "phishing"
+
+# Use it
+balorsh phishing
+# Or: sudo balorsh phishing
+```
+
+📚 **Complete documentation:** [docs/ADDONS.md](docs/ADDONS.md)  
+📖 **Phishing addon guide:** [docs/PHISHING.md](docs/PHISHING.md)
+
+---
+
 ## 🎯 Global Objectives
 
 - **compatibility**: tools are patched to be compatible with CachyOS/CachyOS Handheld Edition.
@@ -372,7 +412,7 @@ Some ideas for future stacks and improvements:
 - **Addon Concept**: Add stacks outside the core 8 for better management
 - **Telephony**: Telephony stack, SMS, SIP, etc.
 - **AI Orchestration**: Orchestration of scenarios with Balor tools thanks to local LLMs.
-- **Phishing**: Phishing and social engineering stack
+
 
 ---
 

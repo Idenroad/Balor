@@ -304,6 +304,46 @@ Inspiration et améliorations : le concept s'inspire de [NETREAPER](https://gith
 
 ---
 
+## 🔌 Système d'Addons (1.2.0)
+)
+Balor prend désormais en charge les **addons** — des extensions légères qui complètent les stacks principales sans faire partie du framework central. Les addons suivent les mêmes principes modulaires :
+
+- 🧩 **Extensions Optionnelles** – Installez uniquement ce dont vous avez besoin
+- 📦 **Autonomes** – Chaque addon inclut ses propres scripts d'installation/désinstallation
+- 🎨 **Interface Cohérente** – Mêmes menus et couleurs que les stacks principales
+- 🌐 **i18n Complet** – Support français/anglais
+- 🤖 **Intégration balorsh** – Accès via `balorsh <addon>` comme les stacks classiques
+
+### 🎯 Addons Disponibles
+
+#### 🎣 Addon Phishing (1.2.0)
+
+**Outils :**
+- Gophish (gestion de campagnes de phishing)
+- Zphisher (modèles de pages de phishing)
+- WifiPumpkin3 (phishing Wi-Fi)
+
+**Cas d'usage :**
+- Gestion de campagnes avec collecte d'identifiants
+- Génération de pages de phishing pour tests de sensibilisation
+- Attaques rogue AP et portails captifs Wi-Fi
+
+**Démarrage rapide :**
+```bash
+# Installer l'addon
+./install.sh
+# Choisir 12) Désinstaller un addon → 1) Installer un addon → sélectionner "phishing"
+
+# Utiliser
+balorsh phishing
+# Ou : sudo balorsh phishing
+```
+
+📚 **Documentation complète :** [docs/ADDONS.md](docs/ADDONS.md)  
+📖 **Guide addon Phishing :** [docs/PHISHING.md](docs/PHISHING.md)
+
+---
+
 ## 🎯 Objectifs globaux
 
 - **compatibilité** : les outils sont patchés pour être compatibles avec CachyOS/CachyOS Handheld Edition.
@@ -379,7 +419,6 @@ Quelques idées de futures stacks et amélioration :
 - **Concept addon** : Ajouter des stacks hors core des 8 de bases pour une meilleure gestion
 - **Téléphonie** : Stack téléphonie, SMS, SIP, etc.
 - **Orchestration IA** : Orchestration de scénarios avec les outils de Balor grâce aux LLMs locaux.
-- **Phishing** : Stack de phishing et ingénierie sociale
 
 ---
 

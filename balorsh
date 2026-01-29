@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 BALORSH_ROOT="${BALORSH_ROOT:-/opt/balorsh}"
 STACKS_DIR="${STACKS_DIR:-$BALORSH_ROOT/stacks}"
+ADDONS_DIR="${ADDONS_DIR:-$BALORSH_ROOT/addons}"
 VERSION_FILE="${VERSION_FILE:-$BALORSH_ROOT/VERSION}"
 COMMON_FILE="${COMMON_FILE:-$BALORSH_ROOT/lib/common.sh}"
 I18N_FILE="${I18N_FILE:-$BALORSH_ROOT/lib/i18n.sh}"
@@ -96,13 +97,20 @@ menu_select_key() {
 run_stack() {
   local stack="$1"; shift || true
   local stack_file="$STACKS_DIR/$stack/commands.sh"
-  if [[ ! -f "$stack_file" ]]; then
+  local addon_file="$ADDONS_DIR/$stack/commands.sh"
+  local target_file=""
+
+  if [[ -f "$stack_file" ]]; then
+    target_file="$stack_file"
+  elif [[ -f "$addon_file" ]]; then
+    target_file="$addon_file"
+  else
     printf "${BALORSH_UNKNOWN_STACK:-Stack inconnue ou non installée: %s (attendu: %s)}\\n" "$stack" "$stack_file" >&2
     exit 1
   fi
 
   [[ -f "$COMMON_FILE" ]] && source "$COMMON_FILE"
-  source "$stack_file"
+  source "$target_file"
 
   # Si la stack définit stack_menu(), on l'appelle
   if declare -F stack_menu >/dev/null; then
@@ -162,12 +170,10 @@ main() {
       print_version
       ;;
     list)
-      if [[ -d "$STACKS_DIR" ]]; then
-        ls -1 "$STACKS_DIR" | grep -E -v '(^\.|common|lib)' | sort
-      else
-        echo "${BALORSH_NO_STACKS_DIR:-Aucun dossier stacks trouvé.}" >&2
-        exit 1
-      fi
+      {
+        [[ -d "$STACKS_DIR" ]] && ls -1 "$STACKS_DIR" 2>/dev/null || true
+        [[ -d "$ADDONS_DIR" ]] && ls -1 "$ADDONS_DIR" 2>/dev/null || true
+      } | grep -E -v '(^\.|common|lib)' | sort -u
       ;;
     *)
       if [[ -z "$cmd" ]]; then

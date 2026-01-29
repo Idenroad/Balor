@@ -214,6 +214,7 @@ WIFI_CHECK_CHIPSET_PROMPT="Voulez-vous vérifier le chipset d'une interface? (o/
 INSTALL_MENU_TITLE="Balor %s - idenroad"
 INSTALL_SECTION_INSTALL="──── Installation ────"
 INSTALL_SECTION_UNINSTALL="──── Désinstallation ────"
+INSTALL_SECTION_ADDONS="──── Addons ────"
 INSTALL_SECTION_OTHER="──── Autres ────"
 
 # Options du menu principal
@@ -224,12 +225,22 @@ INSTALL_MENU_4="Installer les stacks manquants uniquement"
 INSTALL_MENU_5="Installer un stack spécifique"
 INSTALL_MENU_6="Installer/Mettre à jour le wrapper balorsh"
 INSTALL_MENU_7="Désinstaller le wrapper balorsh"
-INSTALL_MENU_8="Désinstaller une stack spécifique"
-INSTALL_MENU_9="Désinstaller tous les stacks"
-INSTALL_MENU_10="Mettre à jour tout (stacks + wrapper)"
-INSTALL_MENU_11="Vérifier les outils installés"
-INSTALL_MENU_12="Supprimer les paquets orphelins"
-INSTALL_MENU_13="Ajouter le repo CachyOS"
+INSTALL_MENU_8="Désinstaller une stack"
+INSTALL_MENU_9="Désinstaller toutes les stacks"
+
+# Section addons
+INSTALL_SECTION_ADDONS="ADDONS"
+INSTALL_MENU_10="Lister les addons"
+INSTALL_MENU_11="Installer un addon"
+INSTALL_MENU_12="Désinstaller un addon"
+INSTALL_MENU_13="Installer tous les addons"
+
+# Section autres
+INSTALL_SECTION_OTHER="AUTRES"
+INSTALL_MENU_14="Mettre à jour tout"
+INSTALL_MENU_15="Vérifier les outils installés"
+INSTALL_MENU_16="Supprimer les paquets orphelins"
+INSTALL_MENU_17="Ajouter le dépôt CachyOS"
 INSTALL_MENU_0="Quitter"
 
 # Prompts
@@ -245,7 +256,10 @@ INSTALL_CHECK_NOT_INSTALLED="✗ %s non installé"
 
 # Menus et titres de sections
 INSTALL_MENU_SPECIFIC_TITLE="Installer une stack spécifique"
+INSTALL_MENU_ADDONS_TITLE="Installer un addon"
 INSTALL_STACKS_AVAILABLE="Stacks disponibles :"
+INSTALL_ADDONS_AVAILABLE="Addons disponibles :"
+INSTALL_NO_ADDONS="Aucun addon disponible."
 INSTALL_RETURN="Retour"
 INSTALL_UNINSTALL_ALL_TITLE="Désinstallation de TOUTES les stacks"
 INSTALL_UNINSTALL_ALL_WARNING="⚠  ATTENTION: Cette action va désinstaller TOUTES les stacks!"
@@ -260,11 +274,20 @@ INSTALL_UPDATE_SYSTEM_TITLE="Mise à jour système + AUR"
 # Messages d'installation/désinstallation
 INSTALL_STACK_MSG="[Balor] Installation stack:"
 INSTALL_UNINSTALL_STACK_MSG="[Balor] Désinstallation stack:"
+INSTALL_ADDON_MSG="[Balor] Installation addon:"
+INSTALL_INSTALL_ALL_ADDONS_TITLE="Installation de TOUS les addons"
+INSTALL_ALL_ADDONS_COMPLETE="[Balor] Installation des addons terminée."
+INSTALL_ADDONS_FAILED="Les addons suivants ont échoué :"
 INSTALL_LLM_IGNORED="[Balor] Stack LLM ignorée"
 INSTALL_ALL_COMPLETE="[Balor] Installation complète terminée."
 INSTALL_ALL_EXCEPT_LLM_COMPLETE="[Balor] Installation complète terminée (sauf LLM)."
 INSTALL_UNINSTALL_ALL_COMPLETE="[Balor] Désinstallation complète terminée."
 INSTALL_CANCELLED="Annulé."
+
+# Addon: phishing
+PHISHING_ADDON_INSTALLED="[Balor] Addon phishing installé."
+PHISHING_ADDON_UNINSTALLED="[Balor] Addon phishing désinstallé."
+PHISHING_GOPHISH_RELEASE_URL_NOT_FOUND="[!] Impossible de déterminer l'URL de release gophish (linux-64bit.zip)"
 
 # Messages de mise à jour
 INSTALL_UPDATE_STACK_MSG="[Balor] Mise à jour stack:"

@@ -27,6 +27,7 @@ C_INFO="\e[36m"
 C_SHADOW="\e[90m"
 
 STACKS_DIR="$BALOR_ROOT/stacks"
+ADDONS_DIR="$BALOR_ROOT/addons"
 BANNER_FILE="$BALOR_ROOT/banner.txt"
 BALOR_OPT_ROOT="${BALOR_OPT_ROOT:-/opt/balorsh}"
 BALOR_BIN_PATH="${BALOR_BIN_PATH:-/usr/local/bin/balorsh}"
@@ -97,6 +98,191 @@ get_installed_stack_version() {
   fi
 }
 
+menu_uninstall_addon() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "              ${C_GOOD}${INSTALL_MENU_ADDONS_TITLE}${C_RESET}                       "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_ADDONS_AVAILABLE}${C_RESET}"
+
+  local i=1
+  local addons=()
+  while IFS= read -r a; do
+    addons+=("$a")
+    echo -e "  $i) ${C_HIGHLIGHT}$a${C_RESET}"
+    ((i++))
+  done < <(list_addons)
+
+  if [[ ${#addons[@]} -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_ADDONS}${C_RESET}"
+    press_enter_if_enabled
+    return
+  fi
+
+  echo -e "  0) ${C_RED}${INSTALL_RETURN}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+  read -r choice
+
+  if [[ "$choice" == "0" ]]; then
+    return
+  fi
+
+  local idx=$((choice-1))
+  local sel="${addons[$idx]}"
+  if [[ -n "$sel" ]]; then
+    if uninstall_addon "$sel"; then
+      :
+    else
+      printf "${C_RED}${UNINSTALL_STACK_ERROR}${C_RESET}\n" "$sel"
+    fi
+    press_enter_if_enabled
+  else
+    echo "${INSTALL_INVALID_CHOICE}"
+    press_enter_if_enabled
+  fi
+}
+
+menu_list_addons() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "                 ${C_GOOD}${INSTALL_MENU_10}${C_RESET}                             "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_ADDONS_AVAILABLE}${C_RESET}"
+
+  local i=1
+  local addons=()
+  while IFS= read -r a; do
+    addons+=("$a")
+    echo -e "  $i) ${C_HIGHLIGHT}$a${C_RESET}"
+    ((i++))
+  done < <(list_addons)
+
+  if [[ ${#addons[@]} -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_ADDONS}${C_RESET}"
+  fi
+
+  echo ""
+  echo -e "  0) ${C_GOOD}${INSTALL_RETURN}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+  read -r choice
+  if [[ "$choice" == "0" ]]; then
+    return
+  fi
+}
+
+install_addon() {
+  local addon="$1"
+  local script="$ADDONS_DIR/$addon/install.sh"
+  if [[ -f "$script" ]]; then
+    local exit_code=0
+    bash "$script" </dev/tty || exit_code=$?
+    return $exit_code
+  else
+    printf "$INSTALL_SCRIPT_NOT_FOUND\n" "$addon"
+    return 1
+  fi
+}
+
+uninstall_addon() {
+  local addon="$1"
+  local script="$ADDONS_DIR/$addon/uninstall.sh"
+  if [[ -f "$script" ]]; then
+    local exit_code=0
+    bash "$script" </dev/tty || exit_code=$?
+    return $exit_code
+  else
+    printf "$UNINSTALL_SCRIPT_NOT_FOUND\n" "$addon"
+    return 1
+  fi
+}
+
+menu_install_addon() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "              ${C_GOOD}${INSTALL_MENU_ADDONS_TITLE}${C_RESET}                       "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+  echo -e "${C_SHADOW}${INSTALL_ADDONS_AVAILABLE}${C_RESET}"
+
+  local i=1
+  local addons=()
+  while IFS= read -r a; do
+    addons+=("$a")
+    echo -e "  $i) ${C_HIGHLIGHT}$a${C_RESET}"
+    ((i++))
+  done < <(list_addons)
+
+  if [[ ${#addons[@]} -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_ADDONS}${C_RESET}"
+    press_enter_if_enabled
+    return
+  fi
+
+  echo -e "  0) ${C_RED}${INSTALL_RETURN}${C_RESET}"
+  echo ""
+  echo -ne "${C_ACCENT1}${INSTALL_YOUR_CHOICE}${C_RESET} "
+  read -r choice
+
+  if [[ "$choice" == "0" ]]; then
+    return
+  fi
+
+  local idx=$((choice-1))
+  local sel="${addons[$idx]}"
+  if [[ -n "$sel" ]]; then
+    if install_addon "$sel"; then
+      :
+    else
+      printf "${C_RED}${INSTALL_FAILED}${C_RESET}\n" "$sel"
+    fi
+    press_enter_if_enabled
+  else
+    echo "${INSTALL_INVALID_CHOICE}"
+    press_enter_if_enabled
+  fi
+}
+
+install_all_addons() {
+  echo ""
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo -e "          ${C_GOOD}${INSTALL_INSTALL_ALL_ADDONS_TITLE}${C_RESET}                    "
+  echo -e "${C_ACCENT2}═══════════════════════════════════════════════════════════════════${C_RESET}"
+  echo ""
+
+  local addons=()
+  while IFS= read -r a; do
+    addons+=("$a")
+  done < <(list_addons)
+
+  if [[ ${#addons[@]} -eq 0 ]]; then
+    echo -e "${C_YELLOW}${INSTALL_NO_ADDONS}${C_RESET}"
+    press_enter_if_enabled
+    return
+  fi
+
+  local failures=()
+  for a in "${addons[@]}"; do
+    echo -e "${C_INFO}${INSTALL_ADDON_MSG} ${C_HIGHLIGHT}$a${C_RESET}"
+    if install_addon "$a"; then
+      :
+    else
+      failures+=("$a")
+    fi
+  done
+
+  echo ""
+  echo -e "${C_GOOD}${INSTALL_ALL_ADDONS_COMPLETE}${C_RESET}"
+  if (( ${#failures[@]} > 0 )); then
+    echo -e "${C_RED}${INSTALL_ADDONS_FAILED}${C_RESET}"
+    for f in "${failures[@]}"; do echo "  - $f"; done
+  fi
+  press_enter_if_enabled
+}
+
 # Mettre à jour le JSON des stacks installées avec leur version
 update_stacks_json() {
   local json_dir="$BALOR_OPT_ROOT/json"
@@ -158,6 +344,13 @@ update_stacks_json() {
 
 list_stacks() {
   find "$STACKS_DIR" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort
+}
+
+list_addons() {
+  if [[ ! -d "$ADDONS_DIR" ]]; then
+    return 0
+  fi
+  find "$ADDONS_DIR" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort
 }
 
 install_stack() {
@@ -827,6 +1020,9 @@ install_balorsh_wrapper() {
   # Dossiers (NOTE : slash final => copie le contenu dans le dossier cible)
   sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/lib/"    "$BALOR_OPT_ROOT/lib/"
   sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/stacks/" "$BALOR_OPT_ROOT/stacks/"
+  if [[ -d "$BALOR_ROOT/addons" ]]; then
+    sudo rsync -a --delete --exclude='.git' "$BALOR_ROOT/addons/" "$BALOR_OPT_ROOT/addons/"
+  fi
   
   # Copie de la documentation
   if [[ -d "$BALOR_ROOT/doc" ]]; then
@@ -837,6 +1033,9 @@ install_balorsh_wrapper() {
   # S'assurer que tous les scripts dans /opt/balorsh/stacks ont les bonnes permissions
   echo "${INSTALL_WRAPPER_PERMISSIONS}"
   sudo find "$BALOR_OPT_ROOT/stacks" -type f -name "*.sh" -exec chmod +x {} \;
+  if [[ -d "$BALOR_OPT_ROOT/addons" ]]; then
+    sudo find "$BALOR_OPT_ROOT/addons" -type f -name "*.sh" -exec chmod +x {} \;
+  fi
   
   printf "${INSTALL_WRAPPER_INSTALLING}\n" "$BALOR_BIN_PATH"
   sudo install -m 0755 "$BALOR_OPT_ROOT/balorsh" "$BALOR_BIN_PATH"
@@ -1275,6 +1474,21 @@ check_installed_tools() {
     echo "$*"
   }
 
+  is_addon_app_installed() {
+    local app="$1"
+    case "$app" in
+      gophish)
+        [[ -x "/opt/balorsh/addons/apps/gophish/gophish" ]]
+        return $?
+        ;;
+      zphisher)
+        [[ -f "/opt/balorsh/addons/apps/phishing/zphisher/zphisher.sh" ]]
+        return $?
+        ;;
+    esac
+    return 1
+  }
+
   # collecter paquets depuis packages.txt
   mapfile -t pkgs_from_txt < <(collect_packages_from_packages_txt)
   # collecter paquets explicitement dans scripts (paru/pacman)
@@ -1387,6 +1601,16 @@ check_installed_tools() {
     fi
   done
 
+  for app in gophish zphisher; do
+    ((total_expected++))
+    if is_addon_app_installed "$app"; then
+      pipx_found+=("$app")
+      ((installed_count++))
+    else
+      pipx_missing+=("$app")
+    fi
+  done
+
   echo
   echo "${INSTALL_CHECK_SUMMARY}"
   echo "  ${INSTALL_CHECK_EXPECTED} $total_expected"
@@ -1459,6 +1683,15 @@ check_installed_tools() {
 
 ensure_stack_scripts_executable() {
   find "$STACKS_DIR" -type f -name "*.sh" -print0 | while IFS= read -r -d '' f; do
+    chmod +x "$f"
+  done
+}
+
+ensure_addon_scripts_executable() {
+  if [[ ! -d "$ADDONS_DIR" ]]; then
+    return 0
+  fi
+  find "$ADDONS_DIR" -type f -name "*.sh" -print0 | while IFS= read -r -d '' f; do
     chmod +x "$f"
   done
 }
@@ -1575,6 +1808,14 @@ main_menu() {
     else
       banner_lines=("${INSTALL_BANNER_FALLBACK}")
     fi
+
+    local max_banner_width=0
+    local bl
+    for bl in "${banner_lines[@]}"; do
+      if (( ${#bl} > max_banner_width )); then
+        max_banner_width=${#bl}
+      fi
+    done
     
     # Préparer le menu (côté droit) - centré verticalement
     local menu_lines=(
@@ -1595,11 +1836,17 @@ main_menu() {
       " ${C_HIGHLIGHT}8)${C_RESET} ${C_INFO}${INSTALL_MENU_8}${C_RESET}"
       " ${C_HIGHLIGHT}9)${C_RESET} ${C_INFO}${INSTALL_MENU_9}${C_RESET}"
       ""
-      " ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
+      " ${C_SHADOW}${INSTALL_SECTION_ADDONS}${C_RESET}"
       " ${C_HIGHLIGHT}10)${C_RESET} ${C_INFO}${INSTALL_MENU_10}${C_RESET}"
       " ${C_HIGHLIGHT}11)${C_RESET} ${C_INFO}${INSTALL_MENU_11}${C_RESET}"
       " ${C_HIGHLIGHT}12)${C_RESET} ${C_INFO}${INSTALL_MENU_12}${C_RESET}"
       " ${C_HIGHLIGHT}13)${C_RESET} ${C_INFO}${INSTALL_MENU_13}${C_RESET}"
+      ""
+      " ${C_SHADOW}${INSTALL_SECTION_OTHER}${C_RESET}"
+      " ${C_HIGHLIGHT}14)${C_RESET} ${C_INFO}${INSTALL_MENU_14}${C_RESET}"
+      " ${C_HIGHLIGHT}15)${C_RESET} ${C_INFO}${INSTALL_MENU_15}${C_RESET}"
+      " ${C_HIGHLIGHT}16)${C_RESET} ${C_INFO}${INSTALL_MENU_16}${C_RESET}"
+      " ${C_HIGHLIGHT}17)${C_RESET} ${C_INFO}${INSTALL_MENU_17}${C_RESET}"
       ""
       " ${C_HIGHLIGHT}0)${C_RESET} ${C_INFO}${INSTALL_MENU_0}${C_RESET}"
     )
@@ -1628,9 +1875,9 @@ main_menu() {
       for ((i=0; i<max_lines; i++)); do
         # Ligne de bannière (en violet)
         if [[ $i -lt ${#banner_lines[@]} ]]; then
-          echo -ne "${C_ACCENT2}${banner_lines[$i]}${C_RESET}"
+          printf "%b%-*s%b" "$C_ACCENT2" "$max_banner_width" "${banner_lines[$i]}" "$C_RESET"
         else
-          printf "%80s" ""
+          printf "%*s" "$max_banner_width" ""
         fi
         
         # Espacement entre bannière et menu
@@ -1662,15 +1909,19 @@ main_menu() {
       7) uninstall_balorsh_wrapper ;;
       8) menu_uninstall ;;
       9) uninstall_all ;;
-      10) update_all ;;
-      11)
+      10) menu_list_addons ;;
+      11) menu_install_addon ;;
+      12) menu_uninstall_addon ;;
+      13) install_all_addons ;;
+      14) update_all ;;
+      15)
         check_installed_tools || true
         echo ""
         # Prompt and wait (centralisé)
         press_enter_if_enabled
         ;;
-      12) remove_orphaned_packages ;;
-      13) add_cachyos_repo ;;
+      16) remove_orphaned_packages ;;
+      17) add_cachyos_repo ;;
       0) 
         clear
         echo -e "${C_GOOD}[Idenroad] ${INSTALL_BYE}${C_RESET}"
@@ -1685,6 +1936,7 @@ main_menu() {
 }
 
 ensure_stack_scripts_executable
+ensure_addon_scripts_executable
 
 # Aide : convertir un tableau bash en tableau JSON de chaînes
 _json_join() {
@@ -1720,7 +1972,23 @@ check_installed_tools_json() {
   declare -a pacman_found=() pacman_missing=()
   declare -a aur_found=() aur_missing=()
   declare -a git_found=() git_missing=()
+  declare -a pipx_found=() pipx_missing=()
   local total_expected=0 installed_count=0
+
+  is_addon_app_installed() {
+    local app="$1"
+    case "$app" in
+      gophish)
+        [[ -x "/opt/balorsh/addons/apps/gophish/gophish" ]]
+        return $?
+        ;;
+      zphisher)
+        [[ -f "/opt/balorsh/addons/apps/phishing/zphisher/zphisher.sh" ]]
+        return $?
+        ;;
+    esac
+    return 1
+  }
 
   for p in "${pkgs[@]}"; do
     [[ -n "$p" ]] || continue
@@ -1744,6 +2012,16 @@ check_installed_tools_json() {
     ((total_expected++))
     repo_name="$(basename "${url%%.git}")"
     if is_git_repo_installed "$url"; then git_found+=("$repo_name"); ((installed_count++)); else git_missing+=("${repo_name}:${url}"); fi
+  done
+
+  for app in gophish zphisher; do
+    ((total_expected++))
+    if is_addon_app_installed "$app"; then
+      pipx_found+=("$app")
+      ((installed_count++))
+    else
+      pipx_missing+=("$app")
+    fi
   done
 
   # construit le JSON dans un fichier temporaire, puis tente d'écrire
@@ -1777,7 +2055,13 @@ check_installed_tools_json() {
     printf '{"name":"%s","url":"%s"}' "$esc_name" "$esc_url" >>"$tmpf"
     first=0
   done
-  printf ']}}\n' >>"$tmpf"
+  printf ']},\n' >>"$tmpf"
+
+  # pipx (includes addon apps installed outside pacman/aur)
+  printf '  "pipx": {"expected": %d, "installed": %d, "missing": %d, "installed_list": ' "$(( ${#pipx_found[@]} + ${#pipx_missing[@]} ))" "${#pipx_found[@]}" "${#pipx_missing[@]}" >>"$tmpf"
+  _json_join pipx_found >>"$tmpf"; printf ', "missing_list": ' >>"$tmpf"; _json_join pipx_missing >>"$tmpf"; printf '}\n' >>"$tmpf"
+
+  printf '}\n' >>"$tmpf"
 
   # print to stdout
   cat "$tmpf"

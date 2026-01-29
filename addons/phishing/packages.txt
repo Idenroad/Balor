@@ -1,0 +1,1 @@
+aur:wifipumpkin3-git

@@ -214,6 +214,7 @@ WIFI_CHECK_CHIPSET_PROMPT="Do you want to check an interface's chipset? (y/N)"
 INSTALL_MENU_TITLE="Balor %s - idenroad"
 INSTALL_SECTION_INSTALL="──── Installation ────"
 INSTALL_SECTION_UNINSTALL="──── Uninstallation ────"
+INSTALL_SECTION_ADDONS="──── Addons ────"
 INSTALL_SECTION_OTHER="──── Other ────"
 
 # Main menu options
@@ -224,12 +225,22 @@ INSTALL_MENU_4="Install missing stacks only"
 INSTALL_MENU_5="Install a specific stack"
 INSTALL_MENU_6="Install/Update balorsh wrapper"
 INSTALL_MENU_7="Uninstall balorsh wrapper"
-INSTALL_MENU_8="Uninstall a specific stack"
+INSTALL_MENU_8="Uninstall a stack"
 INSTALL_MENU_9="Uninstall all stacks"
-INSTALL_MENU_10="Update everything (stacks + wrapper)"
-INSTALL_MENU_11="Check installed tools"
-INSTALL_MENU_12="Remove orphaned packages"
-INSTALL_MENU_13="Add CachyOS repo"
+
+# Addons section
+INSTALL_SECTION_ADDONS="ADDONS"
+INSTALL_MENU_10="List addons"
+INSTALL_MENU_11="Install an addon"
+INSTALL_MENU_12="Uninstall an addon"
+INSTALL_MENU_13="Install all addons"
+
+# Other section
+INSTALL_SECTION_OTHER="OTHER"
+INSTALL_MENU_14="Update all"
+INSTALL_MENU_15="Check installed tools"
+INSTALL_MENU_16="Remove orphaned packages"
+INSTALL_MENU_17="Add CachyOS repository"
 INSTALL_MENU_0="Exit"
 
 # Prompts
@@ -245,7 +256,10 @@ INSTALL_CHECK_NOT_INSTALLED="✗ %s not installed"
 
 # Menus and section titles
 INSTALL_MENU_SPECIFIC_TITLE="Install a specific stack"
+INSTALL_MENU_ADDONS_TITLE="Install an addon"
 INSTALL_STACKS_AVAILABLE="Available stacks:"
+INSTALL_ADDONS_AVAILABLE="Available addons:"
+INSTALL_NO_ADDONS="No addons available."
 INSTALL_RETURN="Back"
 INSTALL_UNINSTALL_ALL_TITLE="Uninstall ALL stacks"
 INSTALL_UNINSTALL_ALL_WARNING="⚠  WARNING: This action will uninstall ALL stacks!"
@@ -260,11 +274,20 @@ INSTALL_UPDATE_SYSTEM_TITLE="System + AUR update"
 # Install/Uninstall messages
 INSTALL_STACK_MSG="[Balor] Installing stack:"
 INSTALL_UNINSTALL_STACK_MSG="[Balor] Uninstalling stack:"
+INSTALL_ADDON_MSG="[Balor] Installing addon:"
+INSTALL_INSTALL_ALL_ADDONS_TITLE="Install ALL addons"
+INSTALL_ALL_ADDONS_COMPLETE="[Balor] Addons installation complete."
+INSTALL_ADDONS_FAILED="The following addons failed:"
 INSTALL_LLM_IGNORED="[Balor] LLM stack ignored"
 INSTALL_ALL_COMPLETE="[Balor] Installation complete."
 INSTALL_ALL_EXCEPT_LLM_COMPLETE="[Balor] Installation complete (except LLM)."
 INSTALL_UNINSTALL_ALL_COMPLETE="[Balor] Uninstallation complete."
 INSTALL_CANCELLED="Cancelled."
+
+# Addon: phishing
+PHISHING_ADDON_INSTALLED="[Balor] Phishing addon installed."
+PHISHING_ADDON_UNINSTALLED="[Balor] Phishing addon uninstalled."
+PHISHING_GOPHISH_RELEASE_URL_NOT_FOUND="[!] Unable to determine gophish release URL (linux-64bit.zip)"
 
 # Update messages
 INSTALL_UPDATE_STACK_MSG="[Balor] Updating stack:"
